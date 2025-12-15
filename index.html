@@ -5,14 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>多活動報名表單</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-
 <style>
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding:20px; background:#f5f5f5; }
+body { font-family:'Segoe UI',sans-serif; padding:20px; background:#f5f5f5; }
 .container { background:#fff; padding:20px; border-radius:8px; max-width:700px; margin:0 auto; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
 h1 { color:#00b900; text-align:center; margin-bottom:20px; border-bottom:3px solid #00b900; padding-bottom:10px; }
 .form-section, .info-card, .stats-section { margin-bottom:20px; padding:15px; border:1px solid #ddd; border-radius:6px; }
 label{display:block; margin-top:10px; font-weight:bold;}
-input, select, textarea{width:100%; padding:10px; margin-top:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;}
+input[type="text"], select, textarea, input[type="date"]{width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;}
 .btn{padding:10px 20px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:5px;}
 .btn-register{background-color:#00b900;color:white;}
 .btn-cancel{background-color:#ff3b30;color:white;}
@@ -23,22 +22,23 @@ input, select, textarea{width:100%; padding:10px; margin-top:5px; border:1px sol
 .stats-list{list-style:none;padding-left:0; max-height:200px; overflow-y:auto; border:1px solid #eee; padding:10px; border-radius:4px;}
 .stats-list li{padding:5px 0; border-bottom:1px dotted #eee;}
 .stats-list li:last-child{border-bottom:none;}
-#form-actions{display:flex; justify-content:space-around;}
+#form-actions{display:flex; justify-content:space-around; flex-wrap:wrap;}
 .loading{text-align:center;padding:30px;}
+.btn-map{display:inline-block;padding:3px 8px;margin-left:6px;background:#4285F4;color:#fff;text-decoration:none;border-radius:4px;font-size:0.9em;white-space:nowrap;}
+.btn-map:hover{background:#357ae8;}
 </style>
 </head>
 <body>
 <div class="container">
-
 <h1>多活動報名表單</h1>
 
 <div id="loading-spinner" class="loading"><p>載入中，請稍候...</p></div>
 
 <div id="event-selection" class="form-section" style="display:none;">
-  <h2>選擇報名活動</h2>
+  <h2>選擇活動</h2>
   <label for="event-select">活動列表</label>
   <select id="event-select" onchange="selectEvent(this.value)">
-    <option value="">-- 請選擇一項活動 --</option>
+    <option value="">-- 請選擇 --</option>
   </select>
 </div>
 
@@ -46,156 +46,163 @@ input, select, textarea{width:100%; padding:10px; margin-top:5px; border:1px sol
   <h2>活動資訊 - <span id="info-title"></span></h2>
   <p><strong>主辦:</strong> <span id="info-organizer"></span></p>
   <p><strong>時間:</strong> <span id="info-time"></span></p>
+  <p><strong>地點:</strong> <span id="info-location"></span>
+     <a id="info-map-link" href="#" target="_blank" class="btn-map">📌 開啟地圖</a></p>
 </div>
 
-<div id="dynamic-form" class="form-section" style="display:none;">
-  <h2 id="form-title">報名資料</h2>
-  <p><strong>參加人姓名:</strong> <span id="line-nickname">載入中...</span></p>
+<div id="registration-form" class="form-section" style="display:none;">
+  <h2>報名資料</h2>
+  <p><strong>姓名:</strong> <span id="line-nickname">載入中...</span></p>
   <input type="hidden" id="line-uid">
-  <div id="form-fields"></div>
+
+  <div id="form-dynamic"></div>
 
   <div id="form-actions">
     <button class="btn btn-register" onclick="submitRegistration('register')">報名</button>
     <button class="btn btn-cancel" onclick="submitRegistration('cancel')">取消</button>
     <button class="btn btn-edit" onclick="submitRegistration('edit')">編輯</button>
   </div>
-
   <div id="form-message" class="message"></div>
 </div>
 
 <div id="statistics" class="stats-section" style="display:none;">
   <h2>即時報名統計</h2>
-  <p>總參加人數: <strong><span id="total-attendees">0</span></strong></p>
+  <p>總計 <strong><span id="total-attendees">0</span></strong> 人</p>
   <ul id="registered-list" class="stats-list"></ul>
 </div>
-
 </div>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
-const LIFF_ID = '2008678090-TpSkCDSZ';
+const GAS_URL='https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
+const LIFF_ID='2008678090-TpSkCDSZ';
 let LINE_UID='', LINE_NICKNAME='', CURRENT_EVENT=null, ALL_EVENTS=[];
 
+// 初始化 LIFF
 async function initializeLiff(){
-  try{
-    await liff.init({liffId:LIFF_ID});
-    if(!liff.isLoggedIn()){ liff.login(); return; }
-    const profile = await liff.getProfile();
-    LINE_UID = profile.userId;
-    LINE_NICKNAME = profile.displayName;
-    document.getElementById('line-nickname').textContent = LINE_NICKNAME;
-    loadEventsList();
-  }catch(err){
-    alert('LIFF 初始化失敗\n'+err);
-  }
+  await liff.init({ liffId: LIFF_ID });
+  if(!liff.isLoggedIn()){ liff.login(); return; }
+  const profile = await liff.getProfile();
+  LINE_UID = profile.userId;
+  LINE_NICKNAME = profile.displayName;
+  document.getElementById('line-nickname').textContent = LINE_NICKNAME;
+  loadEventsList();
 }
 
-function formatLocalTime(iso){
-  const d = new Date(iso);
-  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
+// 讀取活動
 async function loadEventsList(){
   const res = await fetch(`${GAS_URL}?action=getEventsList&lineUid=${LINE_UID}`);
   const data = await res.json();
   ALL_EVENTS = data.events || [];
   const sel = document.getElementById('event-select');
-  sel.innerHTML = '<option value="">-- 請選擇一項活動 --</option>';
+  sel.innerHTML = '<option value="">-- 請選擇 --</option>';
   ALL_EVENTS.forEach(ev=>{
-    sel.innerHTML += `<option value="${ev.EventID}" data-type="${ev.Type}">${ev.Title} (${formatLocalTime(ev.Time)})</option>`;
+    sel.innerHTML += `<option value="${ev.EventID}">${ev.Title}</option>`;
   });
   document.getElementById('loading-spinner').style.display='none';
   document.getElementById('event-selection').style.display='block';
 }
 
+// 選擇活動
 function selectEvent(eventId){
   const ev = ALL_EVENTS.find(e=>e.EventID===eventId);
   if(!ev) return;
   CURRENT_EVENT = ev;
   document.getElementById('activity-info').style.display='block';
+  document.getElementById('registration-form').style.display='block';
   document.getElementById('info-title').textContent = ev.Title;
   document.getElementById('info-organizer').textContent = ev.Organizer;
-  document.getElementById('info-time').textContent = formatLocalTime(ev.Time);
-  document.getElementById('dynamic-form').style.display='block';
-  renderForm(ev.Type);
-  loadStats(eventId);
+  if(ev.Type==='Travel'){
+    document.getElementById('info-time').textContent = `${ev.StartDate} ~ ${ev.EndDate}`;
+  } else {
+    document.getElementById('info-time').textContent = ev.StartDate;
+  }
+  document.getElementById('info-location').textContent = ev.Address;
+  document.getElementById('info-map-link').href = ev.MapUrl;
+
+  renderDynamicForm(ev.Type);
+  loadStatsAndStatus(eventId);
 }
 
-function renderForm(type){
-  const container = document.getElementById('form-fields');
-  container.innerHTML='';
-  if(type==='尾牙'){
-    container.innerHTML += `
-      <label>參加人數</label><select id="attendees-count">${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
-      <label>認桌桌數</label><select id="table-count">${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
-      <label>贊助項目</label>
-      <div>
-        <select id="sponsor-name"><option value="飲料">飲料</option><option value="水果">水果</option></select>
-        <select id="sponsor-qty">${Array.from({length:50},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
-      </div>
-      <label>備註</label><textarea id="notes"></textarea>
-    `;
-  } else if(type==='旅遊'){
-    container.innerHTML += `
-      <label>起始日</label><input type="date" id="start-date">
-      <label>結束日</label><input type="date" id="end-date">
-      <label>參加人數</label>
-      <div>大人<select id="adults">${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
-      小孩<select id="kids">${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select></div>
-      <label>上車地點</label><select id="pickup"><option value="台北">台北</option><option value="新竹">新竹</option></select>
-      <label>房型</label><select id="room-type"><option value="雙人房">雙人房</option><option value="四人房">四人房</option></select>
-      <label>贊助項目</label>
-      <div>
-        <select id="sponsor-name"><option value="飲料">飲料</option><option value="水果">水果</option></select>
-        <select id="sponsor-qty">${Array.from({length:50},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>
-      </div>
-      <label>備註</label><textarea id="notes"></textarea>
-    `;
+// 動態表單生成
+function renderDynamicForm(type){
+  const div = document.getElementById('form-dynamic');
+  div.innerHTML='';
+  if(type==='Banquet'){
+    div.innerHTML += `<label>參加人數</label><select id="attendees-count">${[...Array(10)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>`;
+    div.innerHTML += `<label>認桌桌數</label><select id="table-num">${[...Array(11)].map((_,i)=>`<option value="${i}">${i}</option>`).join('')}</select>`;
+    div.innerHTML += `<label>贊助項目</label><input type="text" id="sponsor1" placeholder="贊助項目1"><input type="number" id="qty1" min="0" max="50" value="0">`;
+    div.innerHTML += `<label>備註</label><textarea id="notes"></textarea>`;
+  } else if(type==='Travel'){
+    div.innerHTML += `<label>起始日</label><input type="date" id="start-date" value="${CURRENT_EVENT.StartDate}">`;
+    div.innerHTML += `<label>結束日</label><input type="date" id="end-date" value="${CURRENT_EVENT.EndDate}">`;
+    div.innerHTML += `<label>大人人數</label><select id="adult-count">${[...Array(11)].map((_,i)=>`<option value="${i}">${i}</option>`).join('')}</select>`;
+    div.innerHTML += `<label>小孩人數</label><select id="child-count">${[...Array(11)].map((_,i)=>`<option value="${i}">${i}</option>`).join('')}</select>`;
+    div.innerHTML += `<label>上車地點</label><select id="pickup"></select>`;
+    div.innerHTML += `<label>房型</label><select id="room-type"></select>`;
+    div.innerHTML += `<label>贊助項目</label><input type="text" id="sponsor1" placeholder="贊助項目1"><input type="number" id="qty1" min="0" max="50" value="0">`;
+    div.innerHTML += `<label>備註</label><textarea id="notes"></textarea>`;
+    loadDropdownOptions();
   }
 }
 
-async function submitRegistration(action){
-  if(!CURRENT_EVENT) return;
-  const formData = {
-    attendeesCount: document.getElementById('attendees-count')?.value,
-    tableCount: document.getElementById('table-count')?.value,
-    sponsor: {
-      name: document.getElementById('sponsor-name')?.value,
-      qty: document.getElementById('sponsor-qty')?.value
-    },
-    notes: document.getElementById('notes')?.value,
-    startDate: document.getElementById('start-date')?.value,
-    endDate: document.getElementById('end-date')?.value,
-    adults: document.getElementById('adults')?.value,
-    kids: document.getElementById('kids')?.value,
-    pickup: document.getElementById('pickup')?.value,
-    roomType: document.getElementById('room-type')?.value
-  };
-
-  const res = await fetch(GAS_URL,{method:'POST',body:JSON.stringify({
-    action, eventId: CURRENT_EVENT.EventID,
-    lineUid: LINE_UID,
-    lineNickname: LINE_NICKNAME,
-    formData
-  })});
+// 讀取下拉選單
+async function loadDropdownOptions(){
+  const res = await fetch(`${GAS_URL}?action=getDropdown&type=${CURRENT_EVENT.Type}`);
   const data = await res.json();
-  const msg = document.getElementById('form-message');
-  msg.style.display='block';
-  msg.className = data.status==='success'?'message success':'message error';
-  msg.textContent = data.message;
-  loadStats(CURRENT_EVENT.EventID);
+  if(data.DropDown){
+    const pickup = document.getElementById('pickup');
+    const room = document.getElementById('room-type');
+    pickup.innerHTML = data.DropDown.Pickup.map(v=>`<option value="${v}">${v}</option>`).join('');
+    room.innerHTML = data.DropDown.RoomType.map(v=>`<option value="${v}">${v}</option>`).join('');
+  }
 }
 
-async function loadStats(eventId){
-  const res = await fetch(`${GAS_URL}?action=getStats&eventId=${eventId}`);
+// 即時統計
+async function loadStatsAndStatus(eventId){
+  const res = await fetch(`${GAS_URL}?action=getStatsAndStatus&lineUid=${LINE_UID}&eventId=${eventId}`);
   const data = await res.json();
   document.getElementById('total-attendees').textContent = data.totalAttendees || 0;
   const ul = document.getElementById('registered-list');
   ul.innerHTML='';
   (data.registeredUsers||[]).forEach(u=>{
-    ul.innerHTML+=`<li>${u.name} (${u.attendees}人) ${u.guestNames ? '- 來賓:'+u.guestNames : ''}</li>`;
+    ul.innerHTML += `<li>${u.name} (${u.attendees}人) ${u.guestNames?'- '+u.guestNames:''}</li>`;
   });
-  document.getElementById('statistics').style.display='block';
+}
+
+// 送出報名
+async function submitRegistration(action){
+  if(!CURRENT_EVENT) return;
+  const payload = {
+    action,
+    eventId: CURRENT_EVENT.EventID,
+    Type: CURRENT_EVENT.Type,
+    lineUid: LINE_UID,
+    lineNickname: LINE_NICKNAME,
+    Notes: document.getElementById('notes') ? document.getElementById('notes').value : ""
+  };
+  if(CURRENT_EVENT.Type==='Banquet'){
+    payload.attendeesCount = parseInt(document.getElementById('attendees-count').value);
+    payload.TableNum = parseInt(document.getElementById('table-num').value);
+    payload.Sponsor1 = document.getElementById('sponsor1').value;
+    payload.Qty1 = parseInt(document.getElementById('qty1').value);
+  } else if(CURRENT_EVENT.Type==='Travel'){
+    payload.Adult = parseInt(document.getElementById('adult-count').value);
+    payload.Children = parseInt(document.getElementById('child-count').value);
+    payload.Pickup = document.getElementById('pickup').value;
+    payload.RoomType = document.getElementById('room-type').value;
+    payload.Sponsor1 = document.getElementById('sponsor1').value;
+    payload.Qty1 = parseInt(document.getElementById('qty1').value);
+    payload.StartDate = document.getElementById('start-date').value;
+    payload.EndDate = document.getElementById('end-date').value;
+  }
+
+  const res = await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload)});
+  const data = await res.json();
+  const msg = document.getElementById('form-message');
+  msg.style.display='block';
+  msg.className = data.status==='success'?'message success':'message error';
+  msg.textContent = data.message;
+  loadStatsAndStatus(CURRENT_EVENT.EventID);
 }
 
 initializeLiff();

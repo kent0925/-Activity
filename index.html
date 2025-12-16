@@ -109,6 +109,8 @@ function selectEvent(eventId){
   CURRENT_EVENT = ev;
   document.getElementById('activity-info').style.display='block';
   document.getElementById('registration-form').style.display='block';
+  document.getElementById('statistics').style.display='block';
+
   document.getElementById('info-title').textContent = ev.Title;
   document.getElementById('info-organizer').textContent = ev.Organizer;
   if(ev.Type==='Travel'){
@@ -117,7 +119,11 @@ function selectEvent(eventId){
     document.getElementById('info-time').textContent = ev.StartDate;
   }
   document.getElementById('info-location').textContent = ev.Address;
-  document.getElementById('info-map-link').href = ev.MapUrl;
+  const mapLink = document.getElementById('info-map-link');
+  if(ev.MapUrl){
+    mapLink.href = ev.MapUrl;
+    mapLink.style.display='inline-block';
+  } else { mapLink.style.display='none'; }
 
   renderDynamicForm(ev.Type);
   loadStatsAndStatus(eventId);
@@ -131,6 +137,7 @@ function renderDynamicForm(type){
     div.innerHTML += `<label>參加人數</label><select id="attendees-count">${[...Array(10)].map((_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}</select>`;
     div.innerHTML += `<label>認桌桌數</label><select id="table-num">${[...Array(11)].map((_,i)=>`<option value="${i}">${i}</option>`).join('')}</select>`;
     div.innerHTML += `<label>贊助項目</label><input type="text" id="sponsor1" placeholder="贊助項目1"><input type="number" id="qty1" min="0" max="50" value="0">`;
+    div.innerHTML += `<label>來賓姓名（以逗號分隔）</label><textarea id="guest-names"></textarea>`;
     div.innerHTML += `<label>備註</label><textarea id="notes"></textarea>`;
   } else if(type==='Travel'){
     div.innerHTML += `<label>起始日</label><input type="date" id="start-date" value="${CURRENT_EVENT.StartDate}">`;
@@ -140,6 +147,7 @@ function renderDynamicForm(type){
     div.innerHTML += `<label>上車地點</label><select id="pickup"></select>`;
     div.innerHTML += `<label>房型</label><select id="room-type"></select>`;
     div.innerHTML += `<label>贊助項目</label><input type="text" id="sponsor1" placeholder="贊助項目1"><input type="number" id="qty1" min="0" max="50" value="0">`;
+    div.innerHTML += `<label>來賓姓名（以逗號分隔）</label><textarea id="guest-names"></textarea>`;
     div.innerHTML += `<label>備註</label><textarea id="notes"></textarea>`;
     loadDropdownOptions();
   }
@@ -157,7 +165,7 @@ async function loadDropdownOptions(){
   }
 }
 
-// 即時統計
+// 即時統計與自動帶入表單
 async function loadStatsAndStatus(eventId){
   const res = await fetch(`${GAS_URL}?action=getStatsAndStatus&lineUid=${LINE_UID}&eventId=${eventId}`);
   const data = await res.json();
@@ -167,6 +175,14 @@ async function loadStatsAndStatus(eventId){
   (data.registeredUsers||[]).forEach(u=>{
     ul.innerHTML += `<li>${u.name} (${u.attendees}人) ${u.guestNames?'- '+u.guestNames:''}</li>`;
   });
+
+  // 自動帶入表單（編輯模式）
+  if (data.userStatus && data.userStatus.Status === 'Registered') {
+    const ac = document.getElementById('attendees-count');
+    if (ac) ac.value = data.userStatus.Attendees_Count;
+    const gn = document.getElementById('guest-names');
+    if (gn) gn.value = data.userStatus.Guest_Names || '';
+  }
 }
 
 // 送出報名
@@ -178,7 +194,8 @@ async function submitRegistration(action){
     Type: CURRENT_EVENT.Type,
     lineUid: LINE_UID,
     lineNickname: LINE_NICKNAME,
-    Notes: document.getElementById('notes') ? document.getElementById('notes').value : ""
+    Notes: document.getElementById('notes') ? document.getElementById('notes').value : "",
+    guestNames: document.getElementById('guest-names') ? document.getElementById('guest-names').value : ""
   };
   if(CURRENT_EVENT.Type==='Banquet'){
     payload.attendeesCount = parseInt(document.getElementById('attendees-count').value);
@@ -194,6 +211,7 @@ async function submitRegistration(action){
     payload.Qty1 = parseInt(document.getElementById('qty1').value);
     payload.StartDate = document.getElementById('start-date').value;
     payload.EndDate = document.getElementById('end-date').value;
+    payload.attendeesCount = payload.Adult + payload.Children;
   }
 
   const res = await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload)});

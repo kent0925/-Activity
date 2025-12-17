@@ -136,7 +136,7 @@ function createSponsorRow() {
         </select>
       </div>
       <div class="moneyGrp qty-flex" style="display:none;">
-        <input type="number" class="mVal" value="0" min="0" oninput="if(value<0)value=0"> <span>元</span>
+        <input type="number" class="mVal" value="500" min="0" step="500" oninput="if(value<0)value=0"> <span>元</span>
       </div>
     </div>`;
   $('sponsorContainer').appendChild(div);
@@ -169,7 +169,7 @@ function handleSponsorChange(rowId) {
     qSel.style.display = 'block'; qSel.innerHTML = '';
     let items = [];
     if(val.includes('酒')){
-       items = ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱','2箱','3箱','4箱','自定義數量'];
+       items = ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱(12瓶)','3箱(18瓶)','4箱(24瓶)','自定義數量'];
     } else {
        items = masterOptions.sponsorQty;
     }

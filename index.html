@@ -20,10 +20,10 @@
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
   #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
-  /* 紅包金額專用樣式 */
+  /* 金額輸入框樣式 */
   .qty-input-wrap { position: relative; display: flex; align-items: center; }
-  .qty-input-wrap input { padding-right: 30px; }
-  .qty-unit { position: absolute; right: 10px; top: 15px; color: #666; font-size: 14px; }
+  .qty-input-wrap input { padding-right: 40px; }
+  .qty-unit { position: absolute; right: 10px; top: 14px; color: #666; font-size: 14px; pointer-events: none; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -67,7 +67,7 @@
       <label id="qtyLbl">贊助數量：</label>
       <select id="qtySelect"></select>
       <div id="qtyInputWrap" class="qty-input-wrap" style="display:none;">
-        <input type="number" id="qtyInput" placeholder="請輸入金額">
+        <input type="number" id="qtyInput" placeholder="請輸入金額" step="500" min="0">
         <span class="qty-unit">元</span>
       </div>
     </div>
@@ -100,7 +100,7 @@ function formatDateTime(val, includeTime = false) {
   let d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
 
-  // 時區補償 +8 小時
+  // 時區補償 (UTC+8)
   if (String(val).includes('T')) { d.setHours(d.getHours() + 8); }
 
   const Y = d.getFullYear();
@@ -224,7 +224,6 @@ $('regForm').onsubmit = async (e) => {
   $('result').innerHTML = '<span style="color:orange;">正在傳輸資料...</span>';
   const o = $('eventSelect').selectedOptions[0];
   
-  // 💡 根據贊助項目決定抓取哪個數量欄位
   const isHB = $('sponsor').value === '紅包';
   const finalQty = isHB ? $('qtyInput').value : $('qtySelect').value;
 
@@ -232,7 +231,7 @@ $('regForm').onsubmit = async (e) => {
     eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
     people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value,
     sponsor: $('sponsor').value, sponsorOther: $('spOther').value, 
-    qty: $('qtyGrp').style.display==='none' ? '0' : finalQty, 
+    qty: ($('qtyGrp').style.display === 'none') ? '0' : finalQty, 
     memo: $('memo').value
   };
   try {
@@ -257,7 +256,6 @@ $('canBtn').onclick = async () => {
   finally { $('canBtn').disabled = false; }
 };
 
-// 💡 贊助與紅包邏輯修正
 $('sponsor').onchange = () => {
   const val = $('sponsor').value;
   $('spOtherGrp').style.display = val === '其他' ? 'block' : 'none';
@@ -268,6 +266,7 @@ $('sponsor').onchange = () => {
     $('qtyGrp').style.display = 'block';
     $('qtySelect').style.display = 'none';
     $('qtyInputWrap').style.display = 'flex';
+    if(!$('qtyInput').value) $('qtyInput').value = 0; // 💡 預設 0
   } else {
     $('qtyGrp').style.display = 'block';
     $('qtySelect').style.display = 'block';

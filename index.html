@@ -10,7 +10,7 @@
   h2 { text-align:center; color: #1a73e8; margin-bottom: 20px; }
   label { display:block; margin-top:12px; font-weight: bold; color: #555; }
   select, input, textarea { width:100%; padding:10px; margin-top:5px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-  .btn-group { display: flex; justify-content: space-between; margin-top: 25px; }
+  .btn-group { display: flex; justify(content: space-between; margin-top: 25px; }
   button { padding:12px; width:48%; border:none; border-radius:6px; background:#4CAF50; color:#fff; cursor: pointer; font-weight: bold; transition: 0.3s; }
   button.cancel { background:#e53935; }
   #eventInfo, #stats { margin-top:15px; padding:15px; border-radius:8px; display:none; }
@@ -112,7 +112,6 @@ async function init(){
 $('addSponsorBtn').onclick = createSponsorRow;
 
 function createSponsorRow() {
-  // 修正點：計算目前已選項目與「其他」的數量
   const currentSelects = Array.from(document.querySelectorAll('.sponsor-select')).map(s => s.value);
   const otherCount = currentSelects.filter(v => v === '其他').length;
   const selectedNormal = currentSelects.filter(v => v !== '' && v !== '無' && v !== '其他');
@@ -135,9 +134,14 @@ function createSponsorRow() {
   const sel = div.querySelector('.sponsor-select');
   sel.add(new Option("-- 請選擇 --", ""));
   sel.add(new Option("無", "無"));
+  
+  // 渲染可選的資料庫項目（防重複）
   availableSponsors.forEach(s => sel.add(new Option(s, s)));
-  // 修正點：其他上限 5 次
-  if (otherCount < 5) sel.add(new Option("其他 (自填項目)", "其他"));
+  
+  // 修正點：確保「其他」只會被加入一次且符合上限 5 次
+  if (otherCount < 5) {
+    sel.add(new Option("其他 (自填項目)", "其他"));
+  }
 }
 
 function handleSponsorChange(rowId) {
@@ -169,7 +173,6 @@ function checkSponsorAddButton() {
   const otherCount = current.filter(v => v === '其他').length;
   const normalLeft = masterOptions.sponsor.filter(s => s !== "無" && !current.includes(s)).length > 0;
   
-  // 修正點：顯示按鈕的邏輯 (還有項目可選 OR 其他尚未滿 5 次)
   const canAdd = lastVal && lastVal !== '無' && (normalLeft || otherCount < 5);
   $('addSponsorBtn').style.display = canAdd ? 'block' : 'none';
 }
@@ -186,8 +189,12 @@ $('eventSelect').onchange = () => {
   if (isW) {
     $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
     fill('table', masterOptions.table);
-    const dateStr = formatOnlyDate(d.time), dayStr = getDayOfWeek(d.time), timeStr = (d.time || '').split(' ')[1] || ''; 
-    $('evTime').innerText = `${dateStr} ${dayStr} ${timeStr}`.trim();
+    // 修正時間解析：確保不管格式如何都能正確切分
+    const rawTime = d.time || '';
+    const dateStr = formatOnlyDate(rawTime);
+    const dayStr = getDayOfWeek(rawTime);
+    const timePart = rawTime.includes('T') ? rawTime.split('T')[1].substring(0,5) : (rawTime.split(' ')[1] || '');
+    $('evTime').innerText = `${dateStr} ${dayStr} ${timePart}`.trim();
   } else {
     $('weiyaFields').style.display = 'none'; $('travelFields').style.display = 'block';
     fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
@@ -236,7 +243,7 @@ async function loadStats(eventId) {
   $('sStats').innerHTML = sp; $('stats').style.display = 'block';
 }
 
-// 修正點：正確的 Google Map 搜尋連結
+// 修正點：正確的 Google Map 搜尋連結語法
 $('mapBtn').onclick = () => {
   const q = encodeURIComponent(`${$('evStore').innerText} ${$('evAddress').innerText}`);
   window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');

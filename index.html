@@ -116,7 +116,7 @@ function createSponsorRow() {
     <div class="qtyGrp" style="display:none; margin-top:5px;">
       <select class="qtySelect" onchange="handleQtySelectChange('${rowId}')"></select>
       <div class="qtyCustomGrp qty-flex" style="display:none;">
-        <input type="number" class="qtyCustomNum" min="0" value="1" placeholder="數量">
+        <input type="number" class="qtyCustomNum" min="0" value="1">
         <select class="qtyCustomUnit"><option value="瓶">瓶</option><option value="箱">箱</option></select>
       </div>
       <div class="moneyGrp qty-flex" style="display:none;">
@@ -135,17 +135,42 @@ function removeRow(id) {
 }
 
 function updateSponsorOptions() {
-  const selects = document.querySelectorAll('.sponsor-select');
-  const selectedValues = Array.from(selects).map(s => s.value).filter(v => v !== "" && v !== "其他" && v !== "無");
-  selects.forEach(select => {
-    const cur = select.value;
+  const items = document.querySelectorAll('.sponsor-item');
+  const backups = [];
+
+  items.forEach(item => {
+    backups.push({
+      id: item.id,
+      sel: item.querySelector('.sponsor-select').value,
+      other: item.querySelector('.spOtherInput').value,
+      qtySel: item.querySelector('.qtySelect').value,
+      cNum: item.querySelector('.qtyCustomNum').value,
+      cUnit: item.querySelector('.qtyCustomUnit').value,
+      money: item.querySelector('.moneyInput').value
+    });
+  });
+
+  const selectedValues = backups.map(b => b.sel).filter(v => v !== "" && v !== "其他" && v !== "無");
+
+  backups.forEach(b => {
+    const row = $(b.id);
+    const select = row.querySelector('.sponsor-select');
     select.innerHTML = '<option value="">-- 請選擇 --</option>';
     masterOptions.sponsor.forEach(opt => {
-      if (selectedValues.includes(opt) && opt !== cur && opt !== "其他" && opt !== "無") return;
+      if (selectedValues.includes(opt) && opt !== b.sel && opt !== "其他" && opt !== "無") return;
       select.add(new Option(opt, opt));
     });
-    select.value = cur;
-    handleSponsorChange(select.closest('.sponsor-item').id);
+    
+    select.value = b.sel;
+    handleSponsorChange(b.id);
+
+    row.querySelector('.spOtherInput').value = b.other;
+    row.querySelector('.qtySelect').value = b.qtySel;
+    row.querySelector('.qtyCustomNum').value = b.cNum;
+    row.querySelector('.qtyCustomUnit').value = b.cUnit;
+    row.querySelector('.moneyInput').value = b.money;
+    
+    handleQtySelectChange(b.id);
   });
 }
 
@@ -166,12 +191,15 @@ function handleSponsorChange(rowId) {
       qSel.style.display = qCustom.style.display = 'none'; mGrp.style.display = 'flex';
     } else {
       mGrp.style.display = 'none'; qSel.style.display = 'block';
+      const currentQty = qSel.value;
       qSel.innerHTML = '';
       if (val.includes('酒')) {
-        ['1瓶','2瓶','3瓶','1箱(12瓶)','2箱','其他(自填數量)'].forEach(t => qSel.add(new Option(t, t)));
+        // --- 修正處：瓶數到 5，1箱(6瓶) ---
+        ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱','其他(自填數量)'].forEach(t => qSel.add(new Option(t, t)));
       } else {
         masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
       }
+      if(currentQty) qSel.value = currentQty;
       handleQtySelectChange(rowId);
     }
   }

@@ -78,6 +78,20 @@ const $ = id => document.getElementById(id);
 
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [] };
 
+// 修正：時間格式化函數，確保旅遊與尾牙時間都能漂亮顯示
+function formatDisplayDate(val) {
+  if (!val || val === 'undefined' || val === '') return '未定';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return val; // 如果不是正確日期格式就原樣輸出
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  // 如果有小時資訊(非 00:00) 則顯示完整時間，否則只顯示日期
+  return (h === '00' && min === '00') ? `${y}/${m}/${day}` : `${y}/${m}/${day} ${h}:${min}`;
+}
+
 async function callApi(action, extra = '') {
   try {
     const r = await fetch(`${GAS_URL}?action=${action}${extra}`);
@@ -88,7 +102,7 @@ async function callApi(action, extra = '') {
 function fillSelect(id, dataList) {
   const el = $(id);
   el.innerHTML = '';
-  if (!dataList || dataList.length === 0) { el.add(new Option("-- 請至試算表設定 --", "")); return; }
+  if (!dataList || dataList.length === 0) { el.add(new Option("-- 無資料 --", "")); return; }
   dataList.forEach(item => el.add(new Option(item, item)));
 }
 
@@ -99,7 +113,6 @@ async function init(){
     const p = await liff.getProfile();
     $('userName').value = p.displayName; $('userId').value = p.userId;
     
-    // 取得所有選項
     const [spons, sqty, ppl, tbl, pku, rm, evs, myJoined] = await Promise.all([
       callApi('getOptions', '&type=sponsor'), callApi('getOptions', '&type=sponsorQty'),
       callApi('getOptions', '&type=people'), callApi('getOptions', '&type=table'),
@@ -109,10 +122,8 @@ async function init(){
 
     masterOptions = { sponsor: spons, sponsorQty: sqty, people: ppl, table: tbl, pickup: pku, room: rm };
     
-    // 渲染活動清單
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
     evs.forEach(ev => {
-      // 修正已報名檢測邏輯
       const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
       const opt = new Option(`${ev.title} (${ev.type})${isJoined ? ' ✅' : ''}`, ev.eventId);
       Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
@@ -121,7 +132,6 @@ async function init(){
   } catch (err) { alert("初始化失敗：" + err); }
 }
 
-// 點擊新增贊助項目
 $('addSponsorBtn').onclick = createSponsorRow;
 
 function createSponsorRow() {
@@ -143,14 +153,9 @@ function createSponsorRow() {
     </div>
   `;
   container.appendChild(div);
-  
   const sel = div.querySelector('.sponsor-select');
   sel.add(new Option("-- 請選擇 --", ""));
-  if(masterOptions.sponsor.length > 0) {
-    masterOptions.sponsor.forEach(s => sel.add(new Option(s, s)));
-  } else {
-    sel.add(new Option("無資料(請檢查試算表)", ""));
-  }
+  masterOptions.sponsor.forEach(s => sel.add(new Option(s, s)));
 }
 
 function removeRow(id) { $(id).remove(); if ($('sponsorContainer').children.length === 0) createSponsorRow(); }
@@ -159,12 +164,9 @@ function handleSponsorChange(rowId) {
   const row = $(rowId), val = row.querySelector('.sponsor-select').value;
   const qGrp = row.querySelector('.qtyGrp'), qSel = row.querySelector('.qtySelect'), 
         mGrp = row.querySelector('.moneyGrp'), cGrp = row.querySelector('.customQtyGrp');
-  
-  if(!val || val === '-- 請選擇 --') { qGrp.style.display = 'none'; return; }
-
+  if(!val || val.includes('--')) { qGrp.style.display = 'none'; return; }
   qGrp.style.display = 'block';
   qSel.innerHTML = ''; mGrp.style.display = cGrp.style.display = 'none';
-
   if(val === '紅包') {
     qSel.style.display = 'none'; mGrp.style.display = 'flex';
   } else {
@@ -187,26 +189,32 @@ $('eventSelect').onchange = () => {
   if(!o || !o.value) return;
 
   fillSelect('people', masterOptions.people);
-  if (o.dataset.type === '尾牙') {
+  // 修正：尾牙與旅遊的判斷與顯示
+  const type = o.dataset.type;
+  if (type === '尾牙') {
     $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
     fillSelect('table', masterOptions.table);
+    $('evTime').innerText = formatDisplayDate(o.dataset.time);
   } else {
     $('weiyaFields').style.display = 'none'; $('travelFields').style.display = 'block';
     fillSelect('pickup', masterOptions.pickup); fillSelect('room', masterOptions.room);
+    // 旅遊顯示起訖時間
+    const s = formatDisplayDate(o.dataset.startDate);
+    const e = formatDisplayDate(o.dataset.endDate);
+    $('evTime').innerText = `${s} ~ ${e}`;
   }
 
   $('eventInfo').style.display = $('regForm').style.display = 'block';
   $('evTitle').innerText = o.dataset.title;
+  $('evHost').innerText = o.dataset.host;
   $('evStore').innerText = o.dataset.store;
   $('evAddress').innerText = o.dataset.address;
-  $('evTime').innerText = o.dataset.time || "請洽主辦人";
   
   $('sponsorContainer').innerHTML = '';
   createSponsorRow();
   loadStats(o.value);
 };
 
-// 剩下的送出與統計邏輯
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   const sponsorList = [];

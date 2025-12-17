@@ -1,51 +1,167 @@
-// --- 載入統計 (修正後的邏輯) ---
-async function loadStats(eventId) {
-  try {
-    const data = await callApi('queryStats', `&eventId=${eventId}`);
-    const isWeiYa = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
-    
-    // 1. 總人數統計
-    let total = 0;
-    data.users.forEach(u => total += parseInt(u.people)||0);
-    $('userStats').innerHTML = `<strong>👥 報名總人數：${total} 人</strong><br>` + 
-      data.users.map(u => `${u.userName}(${u.people}人)`).join(', ');
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>活動報名系統</title>
+<style>
+  body { font-family: "Microsoft JhengHei", sans-serif; margin:15px; background:#f0f2f5; }
+  .container { max-width:500px; margin:auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+  h2 { text-align:center; color: #1a73e8; }
+  label { display:block; margin-top:12px; font-weight: bold; }
+  select, input, textarea { width:100%; padding:10px; margin-top:5px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+  .btn-group { display: flex; justify-content: space-between; margin-top: 20px; }
+  button { padding:12px; width:48%; border:none; border-radius:6px; background:#4CAF50; color:#fff; cursor: pointer; font-weight: bold; }
+  button.cancel { background:#e53935; }
+  #eventInfo, #stats { margin-top:15px; padding:15px; border-radius:8px; display:none; }
+  #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
+  #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
+  #result { margin-top:15px; text-align: center; font-weight:bold; }
+  .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+</style>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+<div class="container">
+  <h2>活動報名系統</h2>
+  <label>選擇活動：<select id="eventSelect"><option value="">載入中...</option></select></label>
+  <div id="eventInfo">
+    <h3 id="evTitle" style="margin:0; color:#1a73e8;"></h3>
+    <p>👤 主辦：<span id="evHost"></span> | 📅 <span id="evTime"></span></p>
+    <p>📍 <span id="evStore"></span> (<span id="evAddress"></span>)</p>
+  </div>
+  <form id="regForm" style="display:none;">
+    <label>報名者：<input type="text" id="userName" readonly></label>
+    <input type="hidden" id="userId">
+    <label>人數：<select id="people"></select></label>
+    <div id="weiyaFields" style="display:none;"><label>認桌：<select id="table"></select></label></div>
+    <div id="travelFields" style="display:none;">
+      <label>上車點：<select id="pickup"></select></label>
+      <label>房型：<select id="room"></select></label>
+    </div>
+    <label>贊助：<select id="sponsor"></select></label>
+    <div id="spOtherGrp" style="display:none;"><label>項目：<input type="text" id="spOther"> </label></div>
+    <label id="qtyLbl">數量：<select id="qty"></select></label>
+    <label>備註：<textarea id="memo" rows="2"></textarea></label>
+    <div class="btn-group">
+      <button type="submit" id="subBtn">送出更新</button>
+      <button type="button" class="cancel" id="canBtn">取消報名</button>
+    </div>
+  </form>
+  <div id="result"></div>
+  <div id="stats">
+    <h3 style="margin:0; font-size:16px; color:#2e7d32;">📊 統計回報</h3>
+    <div id="uStats" class="stat-item"></div>
+    <div id="dStats" class="stat-item"></div>
+    <div id="sStats"></div>
+  </div>
+</div>
 
-    // 2. 詳細統計 (桌數/房型)
-    let detail = `<strong>${isWeiYa ? '🗄️ 桌數統計' : '🏨 房型統計'}：</strong><br>`;
-    const target = isWeiYa ? data.tableStats : data.roomStats;
-    
-    // 💡 修正點：自動判斷單位，避免重複顯示「桌」或顯示空白「: 1 桌」
-    const keys = Object.keys(target).filter(k => k.trim() !== "" && k !== "undefined");
-    
-    if(keys.length > 0) {
-      for(let k in target) {
-        if (!k || k.trim() === "" || k === "undefined") continue; // 再次強力過濾空鍵值
-        
-        // 如果後端傳來的名稱已經包含「桌」或「間」，就不再補單位
-        let displayUnit = "";
-        if (isWeiYa && !k.includes("桌")) displayUnit = " 桌";
-        if (!isWeiYa && !k.includes("間") && !k.includes("房")) displayUnit = " 間";
-        
-        detail += `• ${k}: ${target[k]}${displayUnit}<br>`;
-      }
-    } else {
-      detail += '暫無資料';
-    }
-    $('detailStats').innerHTML = detail;
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5WcpVqT54uZhWwF3P8InjwQJor_TqFQsOeaRLn_lQOvwKU/exec';
+const LIFF_ID = '2008678090-TpSkCDSZ';
+const $ = id => document.getElementById(id);
 
-    // 3. 贊助統計
-    let sp = `<strong>🎁 贊助統計：</strong><br>`;
-    const spKeys = Object.keys(data.sponsor).filter(k => k.trim() !== "");
-    if(spKeys.length > 0) {
-      for(let k in data.sponsor) {
-        if (!k || k.trim() === "") continue;
-        sp += `• ${k}: ${data.sponsor[k]}<br>`;
-      }
-    } else {
-      sp += '暫無贊助';
-    }
-    $('sponsorStats').innerHTML = sp;
-  } catch(e) { 
-    console.error('統計更新失敗', e); 
-  }
+async function init(){
+  await liff.init({ liffId: LIFF_ID });
+  if(!liff.isLoggedIn()) liff.login();
+  const p = await liff.getProfile();
+  $('userName').value = p.displayName;
+  $('userId').value = p.userId;
+  loadEvents();
 }
+
+async function loadEvents(){
+  const [evs, myJoined] = await Promise.all([
+    fetch(`${GAS_URL}?action=getEvents`).then(r => r.json()),
+    fetch(`${GAS_URL}?action=queryStats&all=true`).then(r => r.json())
+  ]);
+  
+  $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
+  evs.forEach(ev => {
+    const isJoined = myJoined.some(j => j.eventId === ev.eventId && j.userId === $('userId').value);
+    const opt = document.createElement('option');
+    opt.value = ev.eventId;
+    opt.text = `${ev.title} (${ev.type})${isJoined ? ' 【 ✅ 已報名 】' : ''}`;
+    Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
+    $('eventSelect').add(opt);
+  });
+}
+
+$('eventSelect').onchange = () => {
+  const o = $('eventSelect').selectedOptions[0];
+  if(!o.value) { $('regForm').style.display = $('eventInfo').style.display = $('stats').style.display = 'none'; return; }
+  const isW = o.dataset.type === '尾牙';
+  $('eventInfo').style.display = $('regForm').style.display = $('stats').style.display = 'block';
+  $('evTitle').innerText = o.dataset.title;
+  $('evHost').innerText = o.dataset.host;
+  $('evStore').innerText = o.dataset.store;
+  $('evAddress').innerText = o.dataset.address;
+  $('evTime').innerText = isW ? o.dataset.time : `${o.dataset.startDate} ~ ${o.dataset.endDate}`;
+  $('weiyaFields').style.display = isW ? 'block' : 'none';
+  $('travelFields').style.display = isW ? 'none' : 'block';
+  loadStats(o.value);
+};
+
+$('regForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('subBtn').disabled = true;
+  $('result').innerText = '處理中...';
+  const o = $('eventSelect').selectedOptions[0];
+  const payload = {
+    eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
+    people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value,
+    sponsor: $('sponsor').value, sponsorOther: $('spOther').value, qty: $('qty').value, memo: $('memo').value
+  };
+  const r = await fetch(`${GAS_URL}?action=modify&payload=${encodeURIComponent(JSON.stringify(payload))}`).then(r=>r.json());
+  $('result').innerHTML = `<span style="color:blue">${r.message}</span>`;
+  $('subBtn').disabled = false;
+  loadEvents(); // 刷新選單狀態
+  loadStats(o.value);
+};
+
+$('canBtn').onclick = async () => {
+  if(!confirm('確定取消？')) return;
+  const o = $('eventSelect').selectedOptions[0];
+  const r = await fetch(`${GAS_URL}?action=cancel&payload=${encodeURIComponent(JSON.stringify({eventId:o.value, userId:$('userId').value}))}`).then(r=>r.json());
+  $('result').innerText = r.message;
+  loadEvents();
+  loadStats(o.value);
+};
+
+async function loadStats(id) {
+  const d = await fetch(`${GAS_URL}?action=queryStats&eventId=${id}`).then(r=>r.json());
+  const isW = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
+  let t = 0; d.users.forEach(u => t += parseInt(u.people)||0);
+  $('uStats').innerHTML = `<strong>👥 總人數：${t} 人</strong><br>` + d.users.map(u => `${u.userName}(${u.people})`).join(', ');
+  
+  let det = `<strong>${isW?'🗄️ 桌數':'🏨 房型'}：</strong><br>`;
+  const tar = isW ? d.tableStats : d.roomStats;
+  const keys = Object.keys(tar).filter(k => k && k!=="undefined");
+  if(keys.length) keys.forEach(k => det += `• ${k}: ${tar[k]}${(!k.includes('桌')&&!k.includes('間'))?(isW?' 桌':' 間'):''}<br>`);
+  else det += '無資料';
+  $('dStats').innerHTML = det;
+
+  let s = `<strong>🎁 贊助：</strong><br>`;
+  const sk = Object.keys(d.sponsor).filter(k => k);
+  if(sk.length) sk.forEach(k => s += `• ${k}: ${d.sponsor[k]}<br>`);
+  else s += '無';
+  $('sStats').innerHTML = s;
+}
+
+$('sponsor').onchange = () => {
+  $('spOtherGrp').style.display = $('sponsor').value === '其他' ? 'block' : 'none';
+  $('qtyLbl').style.display = $('sponsor').value === '無' ? 'none' : 'block';
+};
+
+window.onload = () => {
+  init();
+  ['people','table','pickup','room','sponsor','qty'].forEach(async (t) => {
+    const d = await fetch(`${GAS_URL}?action=getOptions&type=${t==='qty'?'sponsorQty':t}`).then(r=>r.json());
+    const el = $(t); el.innerHTML = '';
+    d.forEach(v => { const opt = new Option(v, v); el.add(opt); });
+  });
+};
+</script>
+</body>
+</html>

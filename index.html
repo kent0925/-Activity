@@ -5,164 +5,203 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>旅遊 / 尾牙 報名系統</title>
 <style>
-body { font-family: "Microsoft JhengHei", Arial; margin:20px; background:#f4f4f4; }
-.container { max-width:520px; margin:auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
-h2 { text-align:center; color: #333; }
-label { display:block; margin-top:15px; font-weight: bold; }
-select, input[type=text], textarea { width:100%; padding:10px; margin-top:5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-.btn-group { display: flex; justify-content: space-between; margin-top: 20px; }
-button { padding:12px; width:48%; border:none; border-radius:5px; background:#4CAF50; color:#fff; cursor: pointer; font-size: 16px; }
-button:disabled { background: #ccc; cursor: not-allowed; }
-button.cancel { background:#f44336; }
-#eventInfo, #stats { margin-top:15px; padding:15px; background:#f9f9f9; border-radius:8px; border-left: 5px solid #4CAF50; }
-#result { margin-top:15px; padding: 10px; border-radius: 5px; text-align: center; font-weight:bold; }
+  body { font-family: "Microsoft JhengHei", Arial; margin:15px; background:#f0f2f5; line-height: 1.5; }
+  .container { max-width:500px; margin:auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+  h2 { text-align:center; color: #1a73e8; margin-bottom: 20px; }
+  label { display:block; margin-top:12px; font-weight: bold; color: #444; }
+  select, input, textarea { width:100%; padding:10px; margin-top:5px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  .btn-group { display: flex; justify-content: space-between; margin-top: 20px; }
+  button { padding:12px; width:48%; border:none; border-radius:6px; background:#4CAF50; color:#fff; cursor: pointer; font-size: 16px; font-weight: bold; }
+  button:disabled { background: #ccc; }
+  button.cancel { background:#e53935; }
+  #eventInfo, #stats { margin-top:15px; padding:15px; background:#f8f9fa; border-radius:8px; border-left: 4px solid #1a73e8; }
+  #result { margin-top:15px; padding: 10px; border-radius: 6px; text-align: center; font-weight:bold; background: #e8f0fe; color: #1a73e8; }
+  .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
 <div class="container">
-  <h2>旅遊 / 尾牙 報名表單</h2>
+  <h2>活動報名系統</h2>
   <form id="registrationForm">
-    <label>選擇活動：<select id="eventSelect"><option value="">載入中...</option></select></label>
+    <label>選擇活動：<select id="eventSelect"><option value="">載入活動中...</option></select></label>
 
     <div id="eventInfo" style="display:none;">
-      <h3 id="evTitle" style="margin:0"></h3>
-      <p>時間：<span id="evTime"></span><br>店名：<span id="evStore"></span></p>
-      <button type="button" id="mapBtn" style="width: 100%; background: #2196F3;">📍 Google Map</button>
+      <h3 id="evTitle" style="margin:0; color:#1a73e8;"></h3>
+      <p style="font-size:14px; margin:8px 0;">時間：<span id="evTime"></span><br>地點：<span id="evStore"></span></p>
+      <button type="button" id="mapBtn" style="width: 100%; background: #5c6bc0; font-size:14px;">📍 開啟 Google 地圖</button>
     </div>
 
-    <label>使用者名稱：<input type="text" id="userName" readonly></label>
+    <label>報名者姓名：<input type="text" id="userName" readonly></label>
     <input type="hidden" id="userId">
 
     <div id="formFields" style="display:none;">
       <label>參加人數：<select id="people"></select></label>
-      <label id="tableLabel" style="display:none;">認桌數量：<select id="table"></select></label>
-      <label id="pickupLabel" style="display:none;">上車地點：<select id="pickup"></select></label>
-      <label id="roomLabel" style="display:none;">房型：<select id="room"></select></label>
+      <label id="tableLabel" style="display:none;">認桌數量 (尾牙)：<select id="table"></select></label>
+      <label id="pickupLabel" style="display:none;">上車地點 (旅遊)：<select id="pickup"></select></label>
+      <label id="roomLabel" style="display:none;">房型選擇 (旅遊)：<select id="room"></select></label>
+      
       <label>贊助項目：<select id="sponsor"></select></label>
-      <label id="sponsorOtherLabel" style="display:none;">其他贊助：<input type="text" id="sponsorOther"></label>
+      <div id="sponsorOtherGroup" style="display:none;">
+        <label>其他贊助名稱：<input type="text" id="sponsorOther"></label>
+      </div>
       <label id="qtyLabel">贊助數量：<select id="qty"></select></label>
-      <label>備註：<textarea id="memo" rows="2"></textarea></label>
+      
+      <label>備註：<textarea id="memo" rows="2" placeholder="有特殊需求請註記"></textarea></label>
 
       <div class="btn-group">
-        <button type="submit" id="submitBtn">送出 / 更新</button>
+        <button type="submit" id="submitBtn">送出更新</button>
         <button type="button" class="cancel" id="cancelBtn">取消報名</button>
       </div>
     </div>
   </form>
-  <p id="result"></p>
+
+  <p id="result">請先選擇活動</p>
+
   <div id="stats" style="display:none;">
-    <h3>活動報名統計</h3>
-    <div id="userStats"></div>
-    <div id="tableRoomStats" style="margin-top:10px;"></div>
-    <div id="sponsorStats" style="margin-top:10px;"></div>
+    <h3 style="margin-top:0; font-size:16px;">📊 即時統計回報</h3>
+    <div id="userStats" class="stat-item"></div>
+    <div id="detailStats" class="stat-item"></div>
+    <div id="sponsorStats"></div>
   </div>
 </div>
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5WcpVqT54uZhWwF3P8InjwQJor_TqFQsOeaRLn_lQOvwKU/exec';
 const LIFF_ID = '2008678090-TpSkCDSZ';
-
 const $ = id => document.getElementById(id);
 
-async function initLiff(){ 
-  try{ 
-    await liff.init({ liffId: LIFF_ID }); 
-    if(!liff.isLoggedIn()) liff.login(); 
-    else { const p = await liff.getProfile(); $('userName').value = p.displayName; $('userId').value = p.userId; }
-  } catch(e){ $('result').innerText = 'LIFF 失敗'; }
+async function initLiff(){
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if(!liff.isLoggedIn()) liff.login();
+    const p = await liff.getProfile();
+    $('userName').value = p.displayName;
+    $('userId').value = p.userId;
+  } catch(e) { $('result').innerText = 'LINE 初始化失敗'; }
 }
 
-async function loadEvents(){ 
-  try{ 
-    const res = await fetch(`${GAS_URL}?action=getEvents`); 
-    const data = await res.json(); 
-    $('eventSelect').innerHTML = '<option value="">請選擇活動</option>'; 
-    data.forEach(ev => { 
-      const opt = document.createElement('option'); opt.value = ev.eventId; opt.text = `${ev.title} (${ev.type})`;
-      Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || ''); $('eventSelect').add(opt); 
-    }); 
-  } catch(e){ console.error(e); } 
-}
-
-async function loadOptions(type, id){ 
-  const res = await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
-  const data = await res.json();
-  const sel = $(id); sel.innerHTML = '';
-  data.forEach(v => { const o = document.createElement('option'); o.value = v; o.text = v; sel.add(o); });
+async function loadData(action, params = '') {
+  const res = await fetch(`${GAS_URL}?action=${action}${params}`);
+  return await res.json();
 }
 
 $('eventSelect').addEventListener('change', async () => {
   const opt = $('eventSelect').selectedOptions[0];
-  if(!opt.value){ $('formFields').style.display = 'none'; $('eventInfo').style.display = 'none'; $('stats').style.display = 'none'; return; }
-  $('formFields').style.display = 'block'; $('eventInfo').style.display = 'block'; $('stats').style.display = 'block';
-  $('evTitle').innerText = opt.dataset.title;
+  if(!opt.value) { 
+    $('formFields').style.display = $('eventInfo').style.display = $('stats').style.display = 'none'; 
+    return; 
+  }
   const isWeiYa = opt.dataset.type === '尾牙';
+  $('eventInfo').style.display = 'block';
+  $('formFields').style.display = 'block';
+  $('stats').style.display = 'block';
+  
+  $('evTitle').innerText = opt.dataset.title;
   $('evTime').innerText = isWeiYa ? opt.dataset.time : `${opt.dataset.startDate} ~ ${opt.dataset.endDate}`;
   $('evStore').innerText = opt.dataset.store;
   $('mapBtn').onclick = () => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(opt.dataset.address)}`);
+  
   $('tableLabel').style.display = isWeiYa ? 'block' : 'none';
   $('pickupLabel').style.display = $('roomLabel').style.display = isWeiYa ? 'none' : 'block';
+  
   loadStats(opt.value);
 });
 
-$('sponsor').addEventListener('change', () => { 
-  $('sponsorOtherLabel').style.display = $('sponsor').value === '其他' ? 'block' : 'none'; 
-  $('qtyLabel').style.display = $('sponsor').value === '無' ? 'none' : 'block'; 
+$('sponsor').addEventListener('change', () => {
+  $('sponsorOtherGroup').style.display = $('sponsor').value === '其他' ? 'block' : 'none';
+  $('qtyLabel').style.display = $('sponsor').value === '無' ? 'none' : 'block';
 });
 
-// 重點：改用 GET 傳輸資料
-async function callGasAction(action, payload) {
+// 通用執行函數 (GET 模式解決 CORS)
+async function runAction(action, payload) {
   const url = `${GAS_URL}?action=${action}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
   const res = await fetch(url);
   return await res.json();
 }
 
-$('registrationForm').addEventListener('submit', async e => {
+$('registrationForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const opt = $('eventSelect').selectedOptions[0];
-  $('submitBtn').disabled = true; $('result').innerText = '儲存中...';
-  const payload = { 
-    eventId: opt.value, eventType: opt.dataset.type, userId: $('userId').value, userName: $('userName').value, 
-    people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value, 
-    sponsor: $('sponsor').value, sponsorOther: $('sponsorOther').value, qty: $('qty').value, memo: $('memo').value 
+  $('submitBtn').disabled = true;
+  $('result').innerText = '連線伺服器中...';
+  
+  const payload = {
+    eventId: opt.value, eventType: opt.dataset.type, userId: $('userId').value, 
+    userName: $('userName').value, people: $('people').value, table: $('table').value,
+    pickup: $('pickup').value, room: $('room').value, sponsor: $('sponsor').value,
+    sponsorOther: $('sponsorOther').value, qty: $('qty').value, memo: $('memo').value
   };
+
   try {
-    const r = await callGasAction('modify', payload);
+    const r = await runAction('modify', payload);
     $('result').innerText = r.message;
     loadStats(opt.value);
-  } catch (err) { $('result').innerText = '儲存成功'; loadStats(opt.value); }
-  finally { $('submitBtn').disabled = false; }
+  } catch(e) { 
+    $('result').innerText = '儲存成功'; 
+    setTimeout(() => loadStats(opt.value), 1000);
+  } finally { $('submitBtn').disabled = false; }
 });
 
 $('cancelBtn').addEventListener('click', async () => {
   const opt = $('eventSelect').selectedOptions[0];
-  if(!confirm('確定要取消嗎？')) return;
-  $('cancelBtn').disabled = true; $('result').innerText = '取消中...';
+  if(!confirm('確定要取消報名嗎？')) return;
+  $('cancelBtn').disabled = true;
   try {
-    const r = await callGasAction('cancel', { eventId: opt.value, userId: $('userId').value });
+    const r = await runAction('cancel', { eventId: opt.value, userId: $('userId').value });
     $('result').innerText = r.message;
     loadStats(opt.value);
-  } catch (err) { $('result').innerText = '已取消'; loadStats(opt.value); }
+  } catch(e) { $('result').innerText = '已處理取消'; }
   finally { $('cancelBtn').disabled = false; }
 });
 
-async function loadStats(eventId){
+async function loadStats(eventId) {
   try {
-    const res = await fetch(`${GAS_URL}?action=queryStats&eventId=${eventId}`);
-    const data = await res.json();
-    let total = 0; data.users.forEach(u => total += parseInt(u.people)||0);
-    $('userStats').innerHTML = `<b>總人數：${total}</b><br>` + data.users.map(u => `• ${u.userName}: ${u.people}`).join('<br>');
-    let tr = '<b>統計：</b><br>'; for(let k in data.tableRoom) tr += `• ${k}: ${data.tableRoom[k]}<br>`;
-    $('tableRoomStats').innerHTML = tr;
-    let sp = '<b>贊助：</b><br>'; for(let k in data.sponsor) sp += `• ${k}: ${data.sponsor[k]}<br>`;
+    const data = await loadData('queryStats', `&eventId=${eventId}`);
+    const isWeiYa = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
+    
+    // 人數
+    let total = 0;
+    data.users.forEach(u => total += parseInt(u.people)||0);
+    $('userStats').innerHTML = `<strong>👥 報名總人數：${total} 人</strong><br>` + 
+      data.users.map(u => `${u.userName}(${u.people})`).join(', ');
+
+    // 房型或桌數 (精確標題)
+    let detail = `<strong>${isWeiYa ? '🗄️ 桌數統計' : '🏨 房型統計'}：</strong><br>`;
+    const target = isWeiYa ? data.tableStats : data.roomStats;
+    const unit = isWeiYa ? '桌' : '間';
+    if(Object.keys(target).length > 0) {
+      for(let k in target) detail += `• ${k}: ${target[k]} ${unit}<br>`;
+    } else detail += '暫無資料';
+    $('detailStats').innerHTML = detail;
+
+    // 贊助
+    let sp = `<strong>🎁 贊助統計：</strong><br>`;
+    if(Object.keys(data.sponsor).length > 0) {
+      for(let k in data.sponsor) sp += `• ${k}: ${data.sponsor[k]}<br>`;
+    } else sp += '暫無贊助';
     $('sponsorStats').innerHTML = sp;
-  } catch(e){}
+  } catch(e) {}
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  await initLiff(); await loadEvents();
-  ['people','table','pickup','room','sponsor','sponsorQty'].forEach(t => loadOptions(t, t==='sponsorQty'?'qty':t));
+  await initLiff();
+  const evs = await loadData('getEvents');
+  $('eventSelect').innerHTML = '<option value="">請選擇活動</option>';
+  evs.forEach(ev => {
+    const opt = document.createElement('option');
+    opt.value = ev.eventId; opt.text = `${ev.title} (${ev.type})`;
+    Object.keys(ev).forEach(k => opt.dataset[k] = ev[k]);
+    $('eventSelect').add(opt);
+  });
+  
+  const options = ['people','table','pickup','room','sponsor','sponsorQty'];
+  options.forEach(async (t) => {
+    const d = await loadData('getOptions', `&type=${t}`);
+    const target = (t === 'sponsorQty') ? $('qty') : $(t);
+    target.innerHTML = '';
+    d.forEach(v => { const o = document.createElement('option'); o.value = v; o.text = v; target.add(o); });
+  });
 });
 </script>
 </body>

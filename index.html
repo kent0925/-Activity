@@ -6,16 +6,13 @@
 <title>旅遊 / 尾牙 報名系統</title>
 
 <style>
-body { font-family: Arial; margin: 20px; background: #f4f4f4; }
+body { font-family: Arial; margin:20px; background:#f4f4f4; }
 .container {
-  max-width: 520px;
-  margin: auto;
-  background: #fff;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  max-width:520px; margin:auto; background:#fff;
+  padding:20px; border-radius:10px;
+  box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
-h2 { text-align: center; }
+h2 { text-align:center; }
 label { display:block; margin-top:10px; }
 select, input[type=text], textarea {
   width:100%; padding:7px; margin-top:5px;
@@ -45,7 +42,7 @@ button.cancel { background:#f44336; }
 <form id="registrationForm">
 
 <label>選擇活動：
-  <select id="eventSelect" required>
+  <select id="eventSelect">
     <option value="">請選擇活動</option>
   </select>
 </label>
@@ -115,13 +112,45 @@ button.cancel { background:#f44336; }
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
 const LIFF_ID = '2008678090-TpSkCDSZ';
 
+/* ===== 星期幾格式化（台灣時區） ===== */
+function formatDateWithWeek(val){
+  if(!val) return '';
+  const d = new Date(val);
+  if(isNaN(d.getTime())) return val;
+
+  const local = new Date(d.getTime() + 8*60*60*1000);
+  const weekMap = ['日','一','二','三','四','五','六'];
+
+  const y = local.getFullYear();
+  const m = String(local.getMonth()+1).padStart(2,'0');
+  const day = String(local.getDate()).padStart(2,'0');
+  const w = weekMap[local.getDay()];
+
+  return `${y}/${m}/${day}（${w}）`;
+}
+
+function formatTimeWithWeek(val){
+  if(!val) return '';
+  const d = new Date(val);
+  if(isNaN(d.getTime())) return val;
+
+  const local = new Date(d.getTime() + 8*60*60*1000);
+  const weekMap = ['日','一','二','三','四','五','六'];
+
+  const hh = String(local.getHours()).padStart(2,'0');
+  const mm = String(local.getMinutes()).padStart(2,'0');
+  const w = weekMap[local.getDay()];
+
+  return `${hh}:${mm}（${w}）`;
+}
+
 /* ===== LIFF ===== */
 async function initLiff(){
   await liff.init({ liffId: LIFF_ID });
   if(!liff.isLoggedIn()) liff.login();
-  const profile = await liff.getProfile();
-  userName.value = profile.displayName;
-  userId.value = profile.userId;
+  const p = await liff.getProfile();
+  userName.value = p.displayName;
+  userId.value = p.userId;
 }
 
 /* ===== 載入活動 ===== */
@@ -142,9 +171,9 @@ async function loadOptions(type,id){
   const res = await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
   const data = await res.json();
   const sel = document.getElementById(id);
-  sel.innerHTML = '';
+  sel.innerHTML='';
   data.forEach(v=>{
-    const o = document.createElement('option');
+    const o=document.createElement('option');
     o.value=v; o.text=v;
     sel.add(o);
   });
@@ -168,10 +197,12 @@ eventSelect.addEventListener('change',()=>{
   evAddress.innerText = opt.dataset.address || '';
 
   if(opt.dataset.type === '尾牙'){
-    evTime.innerText = opt.dataset.time || '';
+    evTime.innerText = formatTimeWithWeek(opt.dataset.time);
   }else{
     evTime.innerText =
-      (opt.dataset.startDate || '') + ' ～ ' + (opt.dataset.endDate || '');
+      formatDateWithWeek(opt.dataset.startDate) +
+      ' ～ ' +
+      formatDateWithWeek(opt.dataset.endDate);
   }
 
   mapBtn.onclick = ()=>{
@@ -179,9 +210,9 @@ eventSelect.addEventListener('change',()=>{
     window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`);
   };
 
-  tableLabel.style.display = opt.dataset.type === '尾牙' ? 'block' : 'none';
+  tableLabel.style.display = opt.dataset.type === '尾牙' ? 'block':'none';
   pickupLabel.style.display = roomLabel.style.display =
-    opt.dataset.type === '旅遊' ? 'block' : 'none';
+    opt.dataset.type === '旅遊' ? 'block':'none';
 });
 
 /* ===== 贊助切換 ===== */
@@ -194,6 +225,7 @@ sponsor.addEventListener('change',()=>{
 registrationForm.addEventListener('submit',async e=>{
   e.preventDefault();
   const opt = eventSelect.selectedOptions[0];
+
   const payload = {
     eventId: opt.value,
     eventType: opt.dataset.type,
@@ -215,30 +247,12 @@ registrationForm.addEventListener('submit',async e=>{
     body: JSON.stringify({
       events:[
         { postback:{ data: JSON.stringify(payload) }},
-        { source:{ userId: userId.value }}
-      ]
-    })
-  });
-  const r = await res.json();
-  result.innerText = r.message;
-});
-
-/* ===== 取消 ===== */
-cancelBtn.addEventListener('click',async ()=>{
-  const opt = eventSelect.selectedOptions[0];
-  if(!opt.value) return;
-  const res = await fetch(GAS_URL,{
-    method:'POST',
-    body: JSON.stringify({
-      events:[
-        { postback:{ data: JSON.stringify({eventId:opt.value, action:'cancel'}) }},
         { source:{ userId:userId.value }}
       ]
     })
   });
   const r = await res.json();
   result.innerText = r.message;
-  formFields.style.display='none';
 });
 
 /* ===== Init ===== */

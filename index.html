@@ -20,6 +20,10 @@
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
   #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
+  /* 紅包金額專用樣式 */
+  .qty-input-wrap { position: relative; display: flex; align-items: center; }
+  .qty-input-wrap input { padding-right: 30px; }
+  .qty-unit { position: absolute; right: 10px; top: 15px; color: #666; font-size: 14px; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -60,7 +64,12 @@
     </div>
     
     <div id="qtyGrp" style="display:none;">
-      <label id="qtyLbl">贊助數量：<select id="qty"></select></label>
+      <label id="qtyLbl">贊助數量：</label>
+      <select id="qtySelect"></select>
+      <div id="qtyInputWrap" class="qty-input-wrap" style="display:none;">
+        <input type="number" id="qtyInput" placeholder="請輸入金額">
+        <span class="qty-unit">元</span>
+      </div>
     </div>
 
     <label>備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
@@ -82,4 +91,206 @@
 </div>
 
 <script>
-const GAS_URL = 'https://script
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5WcpVqT54uZhWwF3P8InjwQJor_TqFQsOeaRLn_lQOvwKU/exec';
+const LIFF_ID = '2008678090-TpSkCDSZ';
+const $ = id => document.getElementById(id);
+
+function formatDateTime(val, includeTime = false) {
+  if (!val || val === 'undefined' || val === 'null' || val === '') return '未定';
+  let d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+
+  // 時區補償 +8 小時
+  if (String(val).includes('T')) { d.setHours(d.getHours() + 8); }
+
+  const Y = d.getFullYear();
+  const M = String(d.getMonth() + 1).padStart(2, '0');
+  const D = String(d.getDate()).padStart(2, '0');
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+  const dayName = weekDays[d.getDay()];
+
+  let result = `${Y}-${M}-${D} (${dayName})`;
+  if (includeTime) {
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    result += ` ${hh}:${mm}`;
+  }
+  return result;
+}
+
+async function callApi(action, extra = '') {
+  const r = await fetch(`${GAS_URL}?action=${action}${extra}`);
+  return await r.json();
+}
+
+async function init(){
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if(!liff.isLoggedIn()) { liff.login(); return; }
+    const p = await liff.getProfile();
+    $('userName').value = p.displayName;
+    $('userId').value = p.userId;
+    loadEvents();
+  } catch(e) { $('result').innerText = 'LINE 初始化失敗'; }
+}
+
+async function loadEvents(){
+  try {
+    const [evs, myJoined] = await Promise.all([
+      callApi('getEvents'),
+      callApi('queryStats', '&all=true')
+    ]);
+    const currentUid = $('userId').value;
+    $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
+    evs.forEach(ev => {
+      const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === currentUid);
+      const opt = document.createElement('option');
+      opt.value = ev.eventId;
+      opt.text = `${ev.title} (${ev.type})${isJoined ? ' 【 ✅ 已報名 】' : ''}`;
+      Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
+      $('eventSelect').add(opt);
+    });
+  } catch(e) { $('eventSelect').innerHTML = '<option value="">活動載入失敗</option>'; }
+}
+
+$('eventSelect').onchange = () => {
+  const o = $('eventSelect').selectedOptions[0];
+  if(!o || !o.value) { 
+    $('regForm').style.display = $('eventInfo').style.display = $('stats').style.display = 'none'; 
+    return; 
+  }
+  const isW = o.dataset.type === '尾牙';
+  $('eventInfo').style.display = $('regForm').style.display = $('stats').style.display = 'block';
+  $('evTitle').innerText = o.dataset.title;
+  $('evHost').innerText = o.dataset.host || '無';
+  $('evStore').innerText = o.dataset.store || '無';
+  $('evAddress').innerText = o.dataset.address || '無';
+  
+  if (isW) {
+    $('evTime').innerText = formatDateTime(o.dataset.time, true);
+  } else {
+    const start = formatDateTime(o.dataset.startDate, false);
+    const end = formatDateTime(o.dataset.endDate, false);
+    $('evTime').innerText = `${start} ~ ${end}`;
+  }
+  
+  $('mapBtn').onclick = () => {
+    const addr = o.dataset.address;
+    if(addr && addr !== '無' && addr !== '') {
+      window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr), "_blank");
+    } else { alert('此活動未提供有效地址'); }
+  };
+
+  $('weiyaFields').style.display = isW ? 'block' : 'none';
+  $('travelFields').style.display = isW ? 'none' : 'block';
+  loadStats(o.value);
+};
+
+async function loadStats(eventId) {
+  try {
+    const data = await callApi('queryStats', `&eventId=${eventId}`);
+    const isW = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
+    
+    let total = 0;
+    data.users.forEach(u => total += parseInt(u.people)||0);
+    $('uStats').innerHTML = `<strong>👥 報名總人數：${total} 人</strong><br>` + 
+      (data.users.length ? data.users.map(u => `${u.userName}(${u.people}人)`).join(', ') : '尚無人報名');
+
+    let det = `<strong>${isW ? '🗄️ 桌數統計' : '🏨 房型統計'}：</strong><br>`;
+    const tar = isW ? data.tableStats : data.roomStats;
+    const keys = Object.keys(tar).filter(k => k && k.trim() !== "" && k !== "undefined");
+    if(keys.length > 0) {
+      keys.forEach(k => {
+        let unit = (isW && !k.includes("桌")) ? " 桌" : ((!isW && !k.includes("間") && !k.includes("房")) ? " 間" : "");
+        det += `• ${k}${unit} <span style="color:#666;">(${tar[k]}人)</span><br>`;
+      });
+    } else { det += '暫無詳細資料<br>'; }
+    $('dStats').innerHTML = det;
+
+    let sp = `<strong>🎁 贊助統計：</strong><br>`;
+    const sk = Object.keys(data.sponsor).filter(k => k && k.trim() !== "");
+    if(sk.length > 0) {
+      sk.forEach(k => {
+        sp += `• ${k}: <span style="color:#d32f2f; font-weight:bold;">${data.sponsor[k]}</span><br>`;
+      });
+    } else { sp += '暫無贊助<br>'; }
+    $('sStats').innerHTML = sp;
+  } catch(e) { console.error('統計更新失敗'); }
+}
+
+$('regForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('subBtn').disabled = true;
+  $('result').innerHTML = '<span style="color:orange;">正在傳輸資料...</span>';
+  const o = $('eventSelect').selectedOptions[0];
+  
+  // 💡 根據贊助項目決定抓取哪個數量欄位
+  const isHB = $('sponsor').value === '紅包';
+  const finalQty = isHB ? $('qtyInput').value : $('qtySelect').value;
+
+  const payload = {
+    eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
+    people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value,
+    sponsor: $('sponsor').value, sponsorOther: $('spOther').value, 
+    qty: $('qtyGrp').style.display==='none' ? '0' : finalQty, 
+    memo: $('memo').value
+  };
+  try {
+    const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
+    $('result').innerHTML = `<span style="color:blue;">${r.message}</span>`;
+    loadEvents();
+    loadStats(o.value);
+  } catch(e) { $('result').innerText = '儲存失敗'; }
+  finally { $('subBtn').disabled = false; }
+};
+
+$('canBtn').onclick = async () => {
+  if(!confirm('確定要取消報名嗎？')) return;
+  const o = $('eventSelect').selectedOptions[0];
+  $('canBtn').disabled = true;
+  try {
+    const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({eventId:o.value, userId:$('userId').value}))}`);
+    $('result').innerHTML = `<span style="color:red;">${r.message}</span>`;
+    loadEvents();
+    loadStats(o.value);
+  } catch(e) { $('result').innerText = '取消失敗'; }
+  finally { $('canBtn').disabled = false; }
+};
+
+// 💡 贊助與紅包邏輯修正
+$('sponsor').onchange = () => {
+  const val = $('sponsor').value;
+  $('spOtherGrp').style.display = val === '其他' ? 'block' : 'none';
+  
+  if (val === '無' || val === '') {
+    $('qtyGrp').style.display = 'none';
+  } else if (val === '紅包') {
+    $('qtyGrp').style.display = 'block';
+    $('qtySelect').style.display = 'none';
+    $('qtyInputWrap').style.display = 'flex';
+  } else {
+    $('qtyGrp').style.display = 'block';
+    $('qtySelect').style.display = 'block';
+    $('qtyInputWrap').style.display = 'none';
+  }
+};
+
+window.onload = () => {
+  init();
+  const optionsConfig = [
+    { type: 'people', id: 'people' }, { type: 'table', id: 'table' },
+    { type: 'pickup', id: 'pickup' }, { type: 'room', id: 'room' },
+    { type: 'sponsor', id: 'sponsor' }, { type: 'sponsorQty', id: 'qtySelect' }
+  ];
+  optionsConfig.forEach(async (cfg) => {
+    try {
+      const d = await callApi('getOptions', `&type=${cfg.type}`);
+      const el = $(cfg.id); el.innerHTML = '';
+      d.forEach(v => el.add(new Option(v, v)));
+      if(cfg.type === 'sponsor') $('sponsor').onchange();
+    } catch(e) {}
+  });
+};
+</script>
+</body>
+</html>

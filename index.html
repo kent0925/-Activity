@@ -3,30 +3,92 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>活動報名系統（LIFF）</title>
+<title>旅遊/尾牙報名系統（LIFF）</title>
 <style>
-body{font-family:Arial;margin:30px;}
-label{display:block;margin-top:10px;}
-select,input[type=text],textarea{width:200px;margin-top:5px;}
-button{margin-top:15px;padding:5px 15px;}
+body{
+  font-family: 'Noto Sans TC', sans-serif;
+  background-color: #f2f4f8;
+  margin: 0;
+  padding: 0;
+}
+.container{
+  max-width: 500px;
+  margin: 20px auto;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  padding: 20px 30px;
+}
+h2{
+  text-align: center;
+  color: #333;
+}
+label{
+  display:block;
+  margin-top:15px;
+  font-weight:500;
+  color:#555;
+}
+select,input[type=text],textarea{
+  width: 100%;
+  padding: 10px;
+  margin-top:5px;
+  border:1px solid #ccc;
+  border-radius:6px;
+  font-size:14px;
+  box-sizing:border-box;
+}
+textarea{resize: vertical;}
+button{
+  margin-top:20px;
+  padding: 10px 20px;
+  font-size:16px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  background-color:#4CAF50;
+  color:#fff;
+  transition:0.3s;
+}
+button:hover{background-color:#45a049;}
+#cancelBtn{
+  background-color:#f44336;
+  margin-left:10px;
+}
+#cancelBtn:hover{background-color:#d73833;}
+#result{
+  margin-top:15px;
+  font-weight:500;
+  text-align:center;
+  color:#007bff;
+}
+.card{
+  background-color:#f9f9f9;
+  padding:15px;
+  border-radius:10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  margin-top:15px;
+}
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-<h2>活動報名表單（LINE帳號自動填寫）</h2>
+<div class="container">
+<h2>旅遊 / 尾牙 報名表單</h2>
+
 <form id="registrationForm">
 <label>活動：
-  <select id="eventId" required></select>
+  <select id="eventSelect" required></select>
 </label>
+
 <label>使用者名稱：
   <input type="text" id="userName" readonly>
 </label>
 <label style="display:none;">User ID：
   <input type="text" id="userId" readonly>
 </label>
-<button type="button" id="queryBtn">查詢報名</button>
 
-<div id="formFields" style="display:none;">
+<div id="formFields" class="card" style="display:none;">
 <label>參加人數：
   <select id="people" required></select>
 </label>
@@ -51,16 +113,20 @@ button{margin-top:15px;padding:5px 15px;}
 <label>備註：
   <textarea id="memo"></textarea>
 </label>
-<button type="submit">送出 / 更新報名</button>
-<button type="button" id="cancelBtn">取消報名</button>
+<div style="text-align:center;">
+  <button type="submit">送出 / 更新報名</button>
+  <button type="button" id="cancelBtn">取消報名</button>
+</div>
 </div>
 <p id="result"></p>
+</form>
+</div>
 
 <script>
 const GAS_URL='https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
 const LIFF_ID='2008678090-TpSkCDSZ';
 
-const eventSelect = document.getElementById('eventId');
+const eventSelect=document.getElementById('eventSelect');
 const tableLabel=document.getElementById('tableLabel');
 const pickupLabel=document.getElementById('pickupLabel');
 const roomLabel=document.getElementById('roomLabel');
@@ -68,6 +134,7 @@ const sponsorEl=document.getElementById('sponsor');
 const sponsorOtherLabel=document.getElementById('sponsorOtherLabel');
 const formFields=document.getElementById('formFields');
 
+// LIFF 初始化
 async function initLiff(){
   await liff.init({liffId: LIFF_ID});
   if(liff.isLoggedIn()){
@@ -79,73 +146,54 @@ async function initLiff(){
   }
 }
 
-// 載入活動
+// 載入活動選單
 async function loadEvents(){
   const res = await fetch(`${GAS_URL}?action=getEvents`);
-  const events = await res.json();
-  eventSelect.innerHTML = '<option value="">請選擇活動</option>';
-  events.forEach(e=>{
+  const data = await res.json();
+  eventSelect.innerHTML='<option value="">請選擇活動</option>';
+  data.forEach(ev=>{
     const opt = document.createElement('option');
-    opt.value = e.eventId;
-    opt.text = `${e.title} (${e.type})`;
-    opt.dataset.type = e.type;
-    opt.dataset.time = e.time;
-    opt.dataset.startDate = e.startDate;
-    opt.dataset.endDate = e.endDate;
+    opt.value=ev.eventId;
+    opt.text=`[${ev.type}] ${ev.title}`;
+    opt.dataset.type=ev.type;
     eventSelect.add(opt);
   });
 }
-
-// 切換尾牙 / 旅遊欄位
-eventSelect.addEventListener('change',()=>{
-  const selected = eventSelect.selectedOptions[0];
-  if(!selected) return;
-  const type = selected.dataset.type;
-  if(type==='尾牙'){ 
-    tableLabel.style.display='block'; 
-    pickupLabel.style.display='none'; 
-    roomLabel.style.display='none'; 
-  } else if(type==='旅遊'){ 
-    tableLabel.style.display='none'; 
-    pickupLabel.style.display='block'; 
-    roomLabel.style.display='block'; 
-  } else {
-    tableLabel.style.display='none'; 
-    pickupLabel.style.display='none'; 
-    roomLabel.style.display='none';
-  }
-});
-
-// 贊助選其他顯示文字欄
-sponsorEl.addEventListener('change',()=>{ sponsorOtherLabel.style.display=sponsorEl.value==='其他'?'block':'none'; });
 
 // 載入下拉選單
 async function loadOptions(type,selectId){
   const res=await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
   const data=await res.json();
   const select=document.getElementById(selectId);
-  select.innerHTML='';
-  data.forEach(d=>{ const opt=document.createElement('option'); opt.value=d; opt.text=d; select.add(opt); });
+  select.innerHTML='<option value="">請選擇</option>';
+  data.forEach(d=>{
+    const opt=document.createElement('option');
+    opt.value=d;
+    opt.text=d;
+    select.add(opt);
+  });
 }
 
-window.addEventListener('DOMContentLoaded',async()=>{
-  await initLiff();
-  await loadEvents();
-  loadOptions('people','people');
-  loadOptions('table','table');
-  loadOptions('sponsor','sponsor');
-  loadOptions('pickup','pickup');
-  loadOptions('room','room');
-  loadOptions('sponsorQty','qty');
+// 當選活動切換欄位
+eventSelect.addEventListener('change',()=>{
+  const selected = eventSelect.selectedOptions[0];
+  if(!selected){formFields.style.display='none'; return;}
+  formFields.style.display='block';
+  const type = selected.dataset.type;
+  if(type==='尾牙'){ tableLabel.style.display='block'; pickupLabel.style.display='none'; roomLabel.style.display='none'; }
+  else if(type==='旅遊'){ tableLabel.style.display='none'; pickupLabel.style.display='block'; roomLabel.style.display='block'; }
 });
 
+// 贊助選其他顯示文字欄
+sponsorEl.addEventListener('change',()=>{ sponsorOtherLabel.style.display=sponsorEl.value==='其他'?'block':'none'; });
+
 // 查詢報名
-document.getElementById('queryBtn').addEventListener('click',async()=>{
-  const eventId=document.getElementById('eventId').value;
+async function queryRegistration(){
+  const eventId=document.getElementById('eventSelect').value;
   const userId=document.getElementById('userId').value;
+  if(!eventId) return;
   const res=await fetch(`${GAS_URL}?action=query&eventId=${eventId}&userId=${userId}`);
   const data=await res.json();
-  formFields.style.display='block';
   if(data.found){
     document.getElementById('people').value=data.people;
     document.getElementById('table').value=data.table;
@@ -159,14 +207,16 @@ document.getElementById('queryBtn').addEventListener('click',async()=>{
   }else{
     document.getElementById('result').innerText="尚未報名，可填寫表單報名";
   }
-});
+}
 
 // 送出 / 修改報名
 document.getElementById('registrationForm').addEventListener('submit',async(e)=>{
   e.preventDefault();
+  const eventId = eventSelect.value;
+  const eventType = eventSelect.selectedOptions[0].dataset.type;
   const data={
-    eventId:document.getElementById('eventId').value,
-    type:eventSelect.selectedOptions[0].dataset.type,
+    eventId:eventId,
+    eventType:eventType,
     userId:document.getElementById('userId').value,
     userName:document.getElementById('userName').value,
     people:document.getElementById('people').value,
@@ -188,17 +238,28 @@ document.getElementById('registrationForm').addEventListener('submit',async(e)=>
 
 // 取消報名
 document.getElementById('cancelBtn').addEventListener('click',async()=>{
-  const data={
-    eventId:document.getElementById('eventId').value,
-    userId:document.getElementById('userId').value,
-    action:'cancel'
-  };
+  const eventId = eventSelect.value;
+  const userId = document.getElementById('userId').value;
+  if(!eventId) return;
+  const data={ eventId,eventType:'', userId, action:'cancel' };
   const res=await fetch(GAS_URL,{
     method:'POST',
-    body: JSON.stringify({events:[{postback:{data:JSON.stringify(data)}}, {source:{userId:data.userId}}]})
+    body: JSON.stringify({events:[{postback:{data:JSON.stringify(data)}}, {source:{userId:userId}}]})
   });
   document.getElementById('result').innerText=await res.text();
   formFields.style.display='none';
+});
+
+// 初始化
+window.addEventListener('DOMContentLoaded',async()=>{
+  await initLiff();
+  await loadEvents();
+  await loadOptions('people','people');
+  await loadOptions('table','table');
+  await loadOptions('pickup','pickup');
+  await loadOptions('room','room');
+  await loadOptions('sponsor','sponsor');
+  await loadOptions('sponsorQty','qty');
 });
 </script>
 </body>

@@ -1,157 +1,308 @@
-// ========== 配置區 ==========
-const SPREADSHEET_ID = "你的 Spreadsheet ID"; 
-const SHEET_RESPONSES = "Responses";
-const SHEET_OPTIONS = "Options";
-const SHEET_EVENTS = "Events";
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旅遊 / 尾牙 報名系統</title>
+<style>
+body { font-family: Arial; margin:20px; background:#f4f4f4; }
+.container {
+  max-width:520px; margin:auto; background:#fff;
+  padding:20px; border-radius:10px;
+  box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+h2 { text-align:center; }
+label { display:block; margin-top:10px; }
+select, input[type=text], textarea {
+  width:100%; padding:7px; margin-top:5px;
+}
+button {
+  margin-top:15px; padding:10px; width:48%;
+  border:none; border-radius:5px;
+  background:#4CAF50; color:#fff;
+}
+button.cancel { background:#f44336; }
+#eventInfo, #stats {
+  margin-top:15px; padding:12px;
+  background:#f9f9f9; border-radius:8px;
+}
+#eventInfo h3, #stats h3 { margin:0 0 8px 0; }
+#result { margin-top:10px; color:#d32f2f; font-weight:bold; }
+</style>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+<div class="container">
 
-// Helper：回傳帶 CORS 的 JSON
-function corsJson(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*");
+<h2>旅遊 / 尾牙 報名表單</h2>
+
+<form id="registrationForm">
+
+<label>選擇活動：
+  <select id="eventSelect">
+    <option value="">請選擇活動</option>
+  </select>
+</label>
+
+<div id="eventInfo" style="display:none;">
+  <h3 id="evTitle"></h3>
+  <p>主辦：<span id="evHost"></span></p>
+  <p>時間：<span id="evTime"></span></p>
+  <p>店名：<span id="evStore"></span></p>
+  <p>地址：<span id="evAddress"></span></p>
+  <button type="button" id="mapBtn">📍 Google Map</button>
+</div>
+
+<label>使用者名稱：
+  <input type="text" id="userName" readonly>
+</label>
+<input type="hidden" id="userId">
+
+<div id="formFields" style="display:none;">
+
+<label>參加人數：
+  <select id="people"></select>
+</label>
+
+<label id="tableLabel">認桌數量（尾牙）：
+  <select id="table"></select>
+</label>
+
+<label id="pickupLabel">上車地點（旅遊）：
+  <select id="pickup"></select>
+</label>
+
+<label id="roomLabel">房型選擇（旅遊）：
+  <select id="room"></select>
+</label>
+
+<label>贊助項目：
+  <select id="sponsor"></select>
+</label>
+
+<label id="sponsorOtherLabel" style="display:none;">
+  其他贊助項目：
+  <input type="text" id="sponsorOther">
+</label>
+
+<label id="qtyLabel">贊助數量：
+  <select id="qty"></select>
+</label>
+
+<label>備註：
+  <textarea id="memo"></textarea>
+</label>
+
+<button type="submit">送出 / 更新</button>
+<button type="button" class="cancel" id="cancelBtn">取消報名</button>
+
+</div>
+
+<p id="result"></p>
+
+<div id="stats" style="display:none;">
+  <h3>活動報名統計</h3>
+  <div id="userStats"></div>
+  <div id="tableRoomStats"></div>
+  <div id="sponsorStats"></div>
+</div>
+
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
+const LIFF_ID = '2008678090-TpSkCDSZ';
+
+function formatDateWithWeek(val){
+  if(!val) return '';
+  const d = new Date(val);
+  if(isNaN(d.getTime())) return val;
+  const local = new Date(d.getTime() + 8*60*60*1000);
+  const weekMap = ['日','一','二','三','四','五','六'];
+  const y = local.getFullYear();
+  const m = String(local.getMonth()+1).padStart(2,'0');
+  const day = String(local.getDate()).padStart(2,'0');
+  const w = weekMap[local.getDay()];
+  return `${y}/${m}/${day}（${w}）`;
 }
 
-// OPTIONS 預檢
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*")
-    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    .setHeader("Access-Control-Allow-Headers", "Content-Type");
+function formatTimeWithWeek(val){
+  if(!val) return '';
+  const d = new Date(val);
+  if(isNaN(d.getTime())) return val;
+  const local = new Date(d.getTime() + 8*60*60*1000);
+  const hh = String(local.getHours()).padStart(2,'0');
+  const mm = String(local.getMinutes()).padStart(2,'0');
+  const weekMap = ['日','一','二','三','四','五','六'];
+  const w = weekMap[local.getDay()];
+  return `${hh}:${mm}（${w}）`;
 }
 
-// 打開 Spreadsheet
-function getSpreadsheet() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+async function initLiff(){
+  await liff.init({ liffId: LIFF_ID });
+  if(!liff.isLoggedIn()) liff.login();
+  const p = await liff.getProfile();
+  userName.value = p.displayName;
+  userId.value = p.userId;
 }
 
-// GET 請求
-function doGet(e) {
-  const action = e.parameter.action;
+async function loadEvents(){
+  const res = await fetch(`${GAS_URL}?action=getEvents`);
+  const data = await res.json();
+  data.forEach(ev=>{
+    const opt = document.createElement('option');
+    opt.value = ev.eventId;
+    opt.text = `${ev.title} (${ev.type})`;
+    Object.keys(ev).forEach(k => opt.dataset[k] = ev[k]);
+    eventSelect.add(opt);
+  });
+}
 
-  if(action === "getOptions") {
-    const type = e.parameter.type;
-    const sheet = getSpreadsheet().getSheetByName(SHEET_OPTIONS);
-    const data = sheet.getDataRange().getValues()
-                      .filter(r => r[0] === type)
-                      .map(r => r[1]);
-    return corsJson(data);
+async function loadOptions(type,id){
+  const res = await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
+  const data = await res.json();
+  const sel = document.getElementById(id);
+  sel.innerHTML='';
+  data.forEach(v=>{
+    const o=document.createElement('option');
+    o.value=v; o.text=v;
+    sel.add(o);
+  });
+}
 
-  } else if(action === "getEvents") {
-    const sheet = getSpreadsheet().getSheetByName(SHEET_EVENTS);
-    const rows = sheet.getDataRange().getValues();
-    const events = [];
-    for(let i=1;i<rows.length;i++){
-      events.push({
-        eventId: rows[i][0],
-        type: rows[i][1],
-        title: rows[i][2],
-        host: rows[i][3],
-        time: rows[i][4],
-        startDate: rows[i][5],
-        endDate: rows[i][6],
-        store: rows[i][7],
-        address: rows[i][8],
-        map: rows[i][9]
-      });
+eventSelect.addEventListener('change',async ()=>{
+  const opt = eventSelect.selectedOptions[0];
+  if(!opt.value){
+    formFields.style.display='none';
+    eventInfo.style.display='none';
+    stats.style.display='none';
+    return;
+  }
+
+  formFields.style.display='block';
+  eventInfo.style.display='block';
+  stats.style.display='block';
+
+  evTitle.innerText = opt.dataset.title || '';
+  evHost.innerText = opt.dataset.host || '';
+  evStore.innerText = opt.dataset.store || '';
+  evAddress.innerText = opt.dataset.address || '';
+
+  if(opt.dataset.type==='尾牙'){
+    evTime.innerText = formatTimeWithWeek(opt.dataset.time);
+  }else{
+    evTime.innerText = formatDateWithWeek(opt.dataset.startDate)+' ～ '+formatDateWithWeek(opt.dataset.endDate);
+  }
+
+  mapBtn.onclick = ()=>{
+    const addr = encodeURIComponent(opt.dataset.address || '');
+    window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`);
+  };
+
+  tableLabel.style.display = opt.dataset.type==='尾牙'?'block':'none';
+  pickupLabel.style.display = roomLabel.style.display = opt.dataset.type==='旅遊'?'block':'none';
+
+  loadStats(opt.value);
+});
+
+sponsor.addEventListener('change',()=>{
+  sponsorOtherLabel.style.display = sponsor.value==='其他'?'block':'none';
+  qtyLabel.style.display = sponsor.value==='無'?'none':'block';
+});
+
+registrationForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const opt = eventSelect.selectedOptions[0];
+  const payload = {
+    eventId: opt.value,
+    eventType: opt.dataset.type,
+    userId: userId.value,
+    userName: userName.value,
+    people: people.value,
+    table: table.value,
+    pickup: pickup.value,
+    room: room.value,
+    sponsor: sponsor.value,
+    sponsorOther: sponsorOther.value,
+    qty: qty.value,
+    memo: memo.value,
+    action:'modify'
+  };
+  const res = await fetch(GAS_URL,{
+    method:'POST',
+    body: JSON.stringify({
+      events:[{ postback:{ data: JSON.stringify(payload) }},
+              { source:{ userId:userId.value }}]
+    })
+  });
+  const r = await res.json();
+  result.innerText = r.message;
+  loadStats(opt.value);
+});
+
+cancelBtn.addEventListener('click',async ()=>{
+  const opt = eventSelect.selectedOptions[0];
+  if(!opt.value) return alert('請先選擇活動');
+  const payload = {eventId:opt.value,userId:userId.value,action:'cancel'};
+  const res = await fetch(GAS_URL,{
+    method:'POST',
+    body: JSON.stringify({
+      events:[{ postback:{ data: JSON.stringify(payload) }},
+              { source:{ userId:userId.value }}]
+    })
+  });
+  const r = await res.json();
+  result.innerText = r.message;
+  formFields.style.display='none';
+  stats.style.display='none';
+  loadStats(opt.value);
+});
+
+async function loadStats(eventId){
+  const res = await fetch(`${GAS_URL}?action=queryStats&eventId=${eventId}`);
+  const data = await res.json();
+
+  let totalPeople = 0;
+  if(data.users && data.users.length>0){
+    data.users.forEach(u=>{ totalPeople += parseInt(u.people)||0; });
+  }
+  let totalHtml = `<b>總報名人數：</b> ${totalPeople} 人<br>`;
+
+  let userHtml='<b>使用者報名：</b><br>';
+  if(data.users && data.users.length>0){
+    data.users.forEach(u=>{
+      userHtml+=`${u.userName}：${u.people}人<br>`;
+    });
+  }else userHtml+='尚無報名<br>';
+  userStats.innerHTML = totalHtml + userHtml;
+
+  let trHtml='<b>桌數 / 房型統計：</b><br>';
+  if(data.tableRoom && Object.keys(data.tableRoom).length>0){
+    for(const key in data.tableRoom){
+      trHtml+=`${key}：${data.tableRoom[key]}<br>`;
     }
-    return corsJson(events);
+  }else trHtml+='尚無資料<br>';
+  tableRoomStats.innerHTML=trHtml;
 
-  } else if(action === "queryStats") {
-    const eventId = e.parameter.eventId;
-    const sheet = getSpreadsheet().getSheetByName(SHEET_RESPONSES);
-    const data = sheet.getDataRange().getValues();
-
-    const users = [];
-    const tableRoom = {};
-    const sponsor = {};
-
-    for(let i=1;i<data.length;i++){
-      if(data[i][0] !== eventId) continue;
-
-      users.push({ userName: data[i][3], people: data[i][4] });
-
-      const type = data[i][1];
-      if(type==="尾牙" && data[i][5]) tableRoom[data[i][5]] = (tableRoom[data[i][5]]||0)+1;
-      else if(type==="旅遊" && data[i][7]) tableRoom[data[i][7]] = (tableRoom[data[i][7]]||0)+1;
-
-      const s = data[i][8];
-      const qty = Number(data[i][10])||0;
-      if(s && s!=="無"){
-        const key = s==="其他" ? data[i][9] : s;
-        sponsor[key] = (sponsor[key]||0)+qty;
-      }
+  let sponsorHtml='<b>贊助統計：</b><br>';
+  if(data.sponsor && Object.keys(data.sponsor).length>0){
+    for(const key in data.sponsor){
+      sponsorHtml+=`${key}：${data.sponsor[key]}<br>`;
     }
-
-    return corsJson({ users, tableRoom, sponsor });
-  }
-
-  return corsJson({ error: "Invalid action" });
+  }else sponsorHtml+='尚無資料<br>';
+  sponsorStats.innerHTML=sponsorHtml;
 }
 
-// POST 請求
-function doPost(e) {
-  const body = JSON.parse(e.postData.contents);
-  const lineEvent = body.events[0];
-  const userId = lineEvent.source.userId;
-  const data = JSON.parse(lineEvent.postback.data);
-
-  if(data.action==="cancel"){
-    const result = cancelRegistration(data.eventId, userId);
-    return corsJson({ message: result ? "報名已取消" : "尚未報名" });
-  }
-
-  saveForm({
-    userId: userId,
-    userName: data.userName,
-    people: data.people,
-    table: data.table,
-    pickup: data.pickup,
-    room: data.room,
-    sponsor: data.sponsor,
-    sponsorOther: data.sponsorOther,
-    qty: data.qty,
-    memo: data.memo
-  }, data.eventId, data.eventType);
-
-  return corsJson({ message: "報名完成（已更新資料）" });
-}
-
-// 儲存 / 更新報名
-function saveForm(data, eventId, eventType){
-  const sheet = getSpreadsheet().getSheetByName(SHEET_RESPONSES);
-  const rowData = [
-    eventId,eventType,data.userId,data.userName,data.people,
-    eventType==="尾牙"?data.table:"",
-    eventType==="旅遊"?data.pickup:"",
-    eventType==="旅遊"?data.room:"",
-    data.sponsor,
-    data.sponsor==="其他"?data.sponsorOther:"",
-    data.qty,
-    data.memo||"",
-    new Date()
-  ];
-  const rowIndex = findUserRow(eventId,data.userId);
-  if(rowIndex===-1) sheet.appendRow(rowData);
-  else sheet.getRange(rowIndex,1,1,rowData.length).setValues([rowData]);
-}
-
-// 取消報名
-function cancelRegistration(eventId,userId){
-  const sheet = getSpreadsheet().getSheetByName(SHEET_RESPONSES);
-  const rowIndex = findUserRow(eventId,userId);
-  if(rowIndex===-1) return false;
-  sheet.deleteRow(rowIndex);
-  return true;
-}
-
-// 找使用者行號
-function findUserRow(eventId,userId){
-  const sheet = getSpreadsheet().getSheetByName(SHEET_RESPONSES);
-  const data = sheet.getDataRange().getValues();
-  for(let i=1;i<data.length;i++){
-    if(data[i][0]===eventId && data[i][2]===userId) return i+1;
-  }
-  return -1;
-}
+window.addEventListener('DOMContentLoaded',async()=>{
+  await initLiff();
+  await loadEvents();
+  loadOptions('people','people');
+  loadOptions('table','table');
+  loadOptions('pickup','pickup');
+  loadOptions('room','room');
+  loadOptions('sponsor','sponsor');
+  loadOptions('sponsorQty','qty');
+});
+</script>
+</body>
+</html>

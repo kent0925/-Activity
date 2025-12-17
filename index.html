@@ -149,12 +149,8 @@ function createSponsorRow() {
   const sel = div.querySelector('.sponsor-select');
   sel.add(new Option("-- 請選擇 --", ""));
   sel.add(new Option("無", "無"));
-  
   availableSponsors.forEach(s => sel.add(new Option(s, s)));
-  
-  if (otherCount < 5) {
-    sel.add(new Option("其他 (自填項目)", "其他"));
-  }
+  if (otherCount < 5) sel.add(new Option("其他 (自填項目)", "其他"));
 }
 
 function handleSponsorChange(rowId) {
@@ -172,12 +168,7 @@ function handleSponsorChange(rowId) {
     mGrp.style.display = 'flex';
   } else if (val && val !== '無') {
     qSel.style.display = 'block'; qSel.innerHTML = '';
-    let items = [];
-    if(val.includes('酒')){
-       items = ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱(12瓶)','3箱(18瓶)','4箱(24瓶)','自定義數量'];
-    } else {
-       items = masterOptions.sponsorQty;
-    }
+    let items = val.includes('酒') ? ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱(12瓶)','3箱(18瓶)','4箱(24瓶)','自定義數量'] : masterOptions.sponsorQty;
     items.forEach(q => qSel.add(new Option(q, q)));
   }
   checkSponsorAddButton();
@@ -205,37 +196,26 @@ function checkSponsorAddButton() {
   const current = Array.from(selects).map(s => s.value);
   const otherCount = current.filter(v => v === '其他').length;
   const normalLeft = masterOptions.sponsor.filter(s => s !== "無" && s !== "其他" && !current.includes(s)).length > 0;
-  
-  const canAdd = lastVal && lastVal !== '無' && (normalLeft || otherCount < 5);
-  $('addSponsorBtn').style.display = canAdd ? 'block' : 'none';
+  $('addSponsorBtn').style.display = (lastVal && lastVal !== '無' && (normalLeft || otherCount < 5)) ? 'block' : 'none';
 }
 
 $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) return;
-  const d = o.dataset;
-  const isW = d.type === '尾牙';
-
+  const d = o.dataset, isW = d.type === '尾牙';
   const fill = (id, list) => { $(id).innerHTML = ''; list.forEach(x => $(id).add(new Option(x, x))); };
   fill('people', masterOptions.people);
-
   if (isW) {
     $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
     fill('table', masterOptions.table);
     const rawTime = d.time || '';
     const dt = new Date(rawTime);
-    const dateStr = formatOnlyDate(rawTime);
-    const dayStr = getDayOfWeek(rawTime);
-    let hh = dt.getHours();
-    let mm = dt.getMinutes();
-    const timePart = isNaN(hh) ? "" : `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
-    $('evTime').innerText = `${dateStr} ${dayStr} ${timePart}`.trim();
+    $('evTime').innerText = `${formatOnlyDate(rawTime)} ${getDayOfWeek(rawTime)} ${isNaN(dt.getHours()) ? "" : String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}`.trim();
   } else {
     $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
     fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
     $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
   }
-
   $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
   $('evStore').innerText = d.store; $('evAddress').innerText = d.address;
   $('regForm').style.display = $('eventInfo').style.display = 'block';
@@ -254,14 +234,9 @@ $('regForm').onsubmit = async (e) => {
       sponsorList.push(`紅包(${row.querySelector('.mVal').value}元)`);
     } else {
       const qSel = row.querySelector('.qtySelect').value;
-      if(qSel === '自定義數量'){
-        sponsorList.push(`${name}(${row.querySelector('.cQty').value}${row.querySelector('.cUnit').value})`);
-      } else {
-        sponsorList.push(`${name}(${qSel})`);
-      }
+      sponsorList.push(qSel === '自定義數量' ? `${name}(${row.querySelector('.cQty').value}${row.querySelector('.cUnit').value})` : `${name}(${qSel})`);
     }
   });
-  
   $('subBtn').disabled = true;
   const o = $('eventSelect').selectedOptions[0].dataset;
   const payload = {
@@ -276,32 +251,27 @@ $('regForm').onsubmit = async (e) => {
 
 async function loadStats(eventId) {
   const data = await callApi('queryStats', `&eventId=${eventId}`);
-  
-  // 總人數與明細
   let total = data.users?.reduce((s, u) => s + (parseInt(u.people)||0), 0) || 0;
   $('uStats').innerHTML = `<strong>👤 總報名：${total} 人</strong>`;
   
-  let uDetailHtml = '';
-  if(data.users && data.users.length > 0) {
-    data.users.forEach(u => {
-      uDetailHtml += `<div class="user-list-item">${u.userName} (${u.people}人)</div>`;
-    });
-  }
-  $('uDetail').innerHTML = uDetailHtml;
+  let uHtml = '';
+  if(data.users) data.users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人)</div>`);
+  $('uDetail').innerHTML = uHtml;
 
-  // 贊助清單與贊助者姓名
-  let sp = `<strong>🎁 贊助清單：</strong><br>`;
-  if(data.sponsorDetail && data.sponsorDetail.length > 0) {
-    // 假設後端傳回 sponsorDetail 為 [{item: "紅包(1000元)", user: "小明"}, ...]
-    data.sponsorDetail.forEach(s => {
-      sp += `• ${s.item} - <span style="color:#1a73e8;">${s.user}</span><br>`;
+  let spHtml = `<strong>🎁 贊助清單：</strong><br>`;
+  let hasSponsor = false;
+  if(data.users) {
+    data.users.forEach(u => {
+      if(u.sponsor && u.sponsor !== '無') {
+        hasSponsor = true;
+        u.sponsor.split(',').forEach(item => {
+          spHtml += `• ${item.trim()} - <span style="color:#1a73e8;">${u.userName}</span><br>`;
+        });
+      }
     });
-  } else if(data.sponsor) {
-    // 備用方案：若後端僅傳回彙總物件，則顯示彙總結果
-    Object.keys(data.sponsor).forEach(k => sp += `• ${k}: ${data.sponsor[k]}<br>`);
   }
-  
-  $('sStats').innerHTML = sp; $('stats').style.display = 'block';
+  $('sStats').innerHTML = hasSponsor ? spHtml : '<strong>🎁 贊助清單：</strong> 暫無贊助';
+  $('stats').style.display = 'block';
 }
 
 $('mapBtn').onclick = () => {

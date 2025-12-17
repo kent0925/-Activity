@@ -281,6 +281,13 @@ async function loadStats(eventId){
   const res = await fetch(`${GAS_URL}?action=queryStats&eventId=${eventId}`);
   const data = await res.json();
 
+  // 總人數
+  let totalPeople = 0;
+  if(data.users && data.users.length>0){
+    data.users.forEach(u=>{ totalPeople += parseInt(u.people)||0; });
+  }
+  let totalHtml = `<b>總報名人數：</b> ${totalPeople} 人<br>`;
+
   // 使用者報名及人數
   let userHtml='<b>使用者報名：</b><br>';
   if(data.users && data.users.length>0){
@@ -288,9 +295,9 @@ async function loadStats(eventId){
       userHtml+=`${u.userName}：${u.people}人<br>`;
     });
   }else userHtml+='尚無報名<br>';
-  userStats.innerHTML=userHtml;
+  userStats.innerHTML = totalHtml + userHtml;
 
-  // 桌數 / 房型
+  // 桌數 / 房型統計
   let trHtml='<b>桌數 / 房型統計：</b><br>';
   if(data.tableRoom && Object.keys(data.tableRoom).length>0){
     for(const key in data.tableRoom){

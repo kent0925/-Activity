@@ -19,6 +19,7 @@
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
+  #mapBtn { width: 100%; background: #5c6bc0; margin-top:10px; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -36,12 +37,12 @@
     <p style="margin:4px 0;">📅 時間：<span id="evTime"></span></p>
     <p style="margin:4px 0;">📍 地點：<span id="evStore"></span></p>
     <p style="margin:4px 0;">🏠 地址：<span id="evAddress"></span></p>
+    <button type="button" id="mapBtn">📍 開啟 Google 地圖</button>
   </div>
 
   <form id="regForm" style="display:none;">
     <input type="hidden" id="userId">
     <label>報名者姓名：<input type="text" id="userName" readonly></label>
-    
     <label>參加人數：<select id="people"></select></label>
     
     <div id="weiyaFields" style="display:none;">
@@ -78,17 +79,21 @@
 </div>
 
 <script>
-// --- 配置區 ---
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5WcpVqT54uZhWwF3P8InjwQJor_TqFQsOeaRLn_lQOvwKU/exec';
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
+
+// 💡 修正日期格式：處理 2026-01-31T16:00:00.000Z
+function formatIsoDate(str) {
+  if (!str || str === 'undefined') return '未定';
+  return str.includes('T') ? str.split('T')[0] : str;
+}
 
 async function callApi(action, extra = '') {
   const r = await fetch(`${GAS_URL}?action=${action}${extra}`);
   return await r.json();
 }
 
-// --- 初始化 LIFF ---
 async function init(){
   try {
     await liff.init({ liffId: LIFF_ID });
@@ -97,20 +102,17 @@ async function init(){
     $('userName').value = p.displayName;
     $('userId').value = p.userId;
     loadEvents();
-  } catch(e) { $('result').innerText = 'LINE 初始化失敗，請在 LINE App 中開啟'; }
+  } catch(e) { $('result').innerText = 'LINE 初始化失敗'; }
 }
 
-// --- 載入活動與報名狀態標記 ---
 async function loadEvents(){
   try {
     const [evs, myJoined] = await Promise.all([
       callApi('getEvents'),
       callApi('queryStats', '&all=true')
     ]);
-    
     const currentUid = $('userId').value;
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
-    
     evs.forEach(ev => {
       const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === currentUid);
       const opt = document.createElement('option');
@@ -119,10 +121,9 @@ async function loadEvents(){
       Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
       $('eventSelect').add(opt);
     });
-  } catch(e) { $('eventSelect').innerHTML = '<option value="">活動清單載入失敗</option>'; }
+  } catch(e) { $('eventSelect').innerHTML = '<option value="">活動載入失敗</option>'; }
 }
 
-// --- 活動選擇連動 ---
 $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) { 
@@ -135,42 +136,48 @@ $('eventSelect').onchange = () => {
   $('evHost').innerText = o.dataset.host || '無';
   $('evStore').innerText = o.dataset.store || '無';
   $('evAddress').innerText = o.dataset.address || '無';
-  $('evTime').innerText = isW ? (o.dataset.time || '未定') : `${o.dataset.startDate} ~ ${o.dataset.endDate}`;
   
+  // 💡 顯示修正後的日期
+  if (isW) {
+    $('evTime').innerText = formatIsoDate(o.dataset.time);
+  } else {
+    $('evTime').innerText = `${formatIsoDate(o.dataset.startDate)} ~ ${formatIsoDate(o.dataset.endDate)}`;
+  }
+  
+  // 💡 修正地圖跳轉連結
+  $('mapBtn').onclick = () => {
+    const addr = o.dataset.address;
+    if(addr && addr !== '無') {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
+    } else { alert('此活動未提供有效地址'); }
+  };
+
   $('weiyaFields').style.display = isW ? 'block' : 'none';
   $('travelFields').style.display = isW ? 'none' : 'block';
   loadStats(o.value);
 };
 
-// --- 核心：統計載入邏輯 ---
 async function loadStats(eventId) {
   try {
     const data = await callApi('queryStats', `&eventId=${eventId}`);
     const isW = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
     
-    // 1. 人數統計
     let total = 0;
     data.users.forEach(u => total += parseInt(u.people)||0);
     $('uStats').innerHTML = `<strong>👥 報名總人數：${total} 人</strong><br>` + 
       (data.users.length ? data.users.map(u => `${u.userName}(${u.people}人)`).join(', ') : '尚無人報名');
 
-    // 2. 詳細統計 (桌數/房型)
     let det = `<strong>${isW ? '🗄️ 桌數統計' : '🏨 房型統計'}：</strong><br>`;
     const tar = isW ? data.tableStats : data.roomStats;
     const keys = Object.keys(tar).filter(k => k && k.trim() !== "" && k !== "undefined");
-    
     if(keys.length > 0) {
       keys.forEach(k => {
-        let displayUnit = "";
-        if (isW && !k.includes("桌")) displayUnit = " 桌";
-        if (!isW && !k.includes("間") && !k.includes("房")) displayUnit = " 間";
-        // 修正：不顯示 : 1，改顯示更直觀的人次
-        det += `• ${k}${displayUnit} <span style="color:#666;">(${tar[k]}人報名)</span><br>`;
+        let unit = (isW && !k.includes("桌")) ? " 桌" : ((!isW && !k.includes("間") && !k.includes("房")) ? " 間" : "");
+        det += `• ${k}${unit} <span style="color:#666;">(${tar[k]}人報名)</span><br>`;
       });
     } else { det += '暫無詳細資料<br>'; }
     $('dStats').innerHTML = det;
 
-    // 3. 贊助統計
     let sp = `<strong>🎁 贊助統計：</strong><br>`;
     const sk = Object.keys(data.sponsor).filter(k => k && k.trim() !== "");
     if(sk.length > 0) {
@@ -179,10 +186,9 @@ async function loadStats(eventId) {
       });
     } else { sp += '暫無贊助<br>'; }
     $('sStats').innerHTML = sp;
-  } catch(e) { console.error('統計更新失敗', e); }
+  } catch(e) { console.error('統計更新失敗'); }
 }
 
-// --- 報名送出 ---
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   $('subBtn').disabled = true;
@@ -196,13 +202,12 @@ $('regForm').onsubmit = async (e) => {
   try {
     const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
     $('result').innerHTML = `<span style="color:blue;">${r.message}</span>`;
-    loadEvents(); // 更新下拉選單標籤
+    loadEvents();
     loadStats(o.value);
-  } catch(e) { $('result').innerText = '儲存失敗，請重試'; }
+  } catch(e) { $('result').innerText = '儲存失敗'; }
   finally { $('subBtn').disabled = false; }
 };
 
-// --- 取消報名 ---
 $('canBtn').onclick = async () => {
   if(!confirm('確定要取消報名嗎？')) return;
   const o = $('eventSelect').selectedOptions[0];
@@ -216,29 +221,24 @@ $('canBtn').onclick = async () => {
   finally { $('canBtn').disabled = false; }
 };
 
-// --- 下拉選單連動 ---
 $('sponsor').onchange = () => {
   $('spOtherGrp').style.display = $('sponsor').value === '其他' ? 'block' : 'none';
   $('qtyLbl').style.display = $('sponsor').value === '無' ? 'none' : 'block';
 };
 
-// --- 頁面啟動預載 ---
 window.onload = () => {
   init();
   const optionsConfig = [
-    { type: 'people', id: 'people' },
-    { type: 'table', id: 'table' },
-    { type: 'pickup', id: 'pickup' },
-    { type: 'room', id: 'room' },
-    { type: 'sponsor', id: 'sponsor' },
-    { type: 'sponsorQty', id: 'qty' }
+    { type: 'people', id: 'people' }, { type: 'table', id: 'table' },
+    { type: 'pickup', id: 'pickup' }, { type: 'room', id: 'room' },
+    { type: 'sponsor', id: 'sponsor' }, { type: 'sponsorQty', id: 'qty' }
   ];
   optionsConfig.forEach(async (cfg) => {
     try {
       const d = await callApi('getOptions', `&type=${cfg.type}`);
       const el = $(cfg.id); el.innerHTML = '';
       d.forEach(v => el.add(new Option(v, v)));
-    } catch(e) { console.warn(`選項 ${cfg.type} 載入失敗`); }
+    } catch(e) {}
   });
 };
 </script>

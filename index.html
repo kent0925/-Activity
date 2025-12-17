@@ -15,15 +15,9 @@ button{margin-top:15px;padding:5px 15px;}
 <body>
 <h2>旅遊/尾牙報名表單（LINE帳號自動填寫）</h2>
 <form id="registrationForm">
-<label>活動類型：
-  <select id="eventType" required>
-    <option value="">請選擇</option>
-    <option value="尾牙">尾牙</option>
-    <option value="旅遊">旅遊</option>
-  </select>
-</label>
-<label>活動ID：
-  <input type="text" id="eventId" required placeholder="例：E001">
+
+<label>選擇活動：
+  <select id="eventSelect" required></select>
 </label>
 <label>使用者名稱：
   <input type="text" id="userName" readonly>
@@ -66,13 +60,15 @@ button{margin-top:15px;padding:5px 15px;}
 <script>
 const GAS_URL='https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
 const LIFF_ID='2008678090-TpSkCDSZ';
-const eventTypeEl=document.getElementById('eventType');
 const tableLabel=document.getElementById('tableLabel');
 const pickupLabel=document.getElementById('pickupLabel');
 const roomLabel=document.getElementById('roomLabel');
 const sponsorEl=document.getElementById('sponsor');
 const sponsorOtherLabel=document.getElementById('sponsorOtherLabel');
 const formFields=document.getElementById('formFields');
+
+let selectedEventType = "";
+let selectedEventId = "";
 
 async function initLiff(){
   await liff.init({liffId: LIFF_ID});
@@ -85,11 +81,34 @@ async function initLiff(){
   }
 }
 
-// 切換尾牙 / 旅遊欄位
-eventTypeEl.addEventListener('change',()=>{
-  if(eventTypeEl.value==='尾牙'){ tableLabel.style.display='block'; pickupLabel.style.display='none'; roomLabel.style.display='none'; }
-  else if(eventTypeEl.value==='旅遊'){ tableLabel.style.display='none'; pickupLabel.style.display='block'; roomLabel.style.display='block'; }
-  else{ tableLabel.style.display='none'; pickupLabel.style.display='none'; roomLabel.style.display='none'; }
+// 載入活動下拉選單
+async function loadEvents(){
+  const res = await fetch(`${GAS_URL}?action=getEvents`);
+  const data = await res.json();
+  const select = document.getElementById('eventSelect');
+  select.innerHTML = '<option value="">請選擇活動</option>';
+  data.forEach(d=>{
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.text = d.name;
+    opt.dataset.type = d.type;
+    select.add(opt);
+  });
+}
+
+// 選擇活動切換表單
+document.getElementById('eventSelect').addEventListener('change',()=>{
+  const selected = document.getElementById('eventSelect').selectedOptions[0];
+  if(selected){
+    selectedEventType = selected.dataset.type;
+    selectedEventId = selected.value;
+    if(selectedEventType==='尾牙'){ tableLabel.style.display='block'; pickupLabel.style.display='none'; roomLabel.style.display='none'; }
+    else if(selectedEventType==='旅遊'){ tableLabel.style.display='none'; pickupLabel.style.display='block'; roomLabel.style.display='block'; }
+    else{ tableLabel.style.display='none'; pickupLabel.style.display='none'; roomLabel.style.display='none'; }
+    formFields.style.display='block';
+  }else{
+    formFields.style.display='none';
+  }
 });
 
 // 贊助選其他顯示文字欄
@@ -103,23 +122,12 @@ async function loadOptions(type,selectId){
   select.innerHTML='<option value="">請選擇</option>';
   data.forEach(d=>{ const opt=document.createElement('option'); opt.value=d; opt.text=d; select.add(opt); });
 }
-window.addEventListener('DOMContentLoaded',async()=>{
-  await initLiff();
-  loadOptions('people','people');
-  loadOptions('table','table');
-  loadOptions('sponsor','sponsor');
-  loadOptions('pickup','pickup');
-  loadOptions('room','room');
-  loadOptions('sponsorQty','qty');
-});
 
 // 查詢報名
 document.getElementById('queryBtn').addEventListener('click',async()=>{
-  const eventId=document.getElementById('eventId').value;
   const userId=document.getElementById('userId').value;
-  const res=await fetch(`${GAS_URL}?action=query&eventId=${eventId}&userId=${userId}`);
+  const res=await fetch(`${GAS_URL}?action=query&eventId=${selectedEventId}&userId=${userId}`);
   const data=await res.json();
-  formFields.style.display='block';
   if(data.found){
     document.getElementById('people').value=data.people;
     document.getElementById('table').value=data.table;
@@ -139,8 +147,8 @@ document.getElementById('queryBtn').addEventListener('click',async()=>{
 document.getElementById('registrationForm').addEventListener('submit',async(e)=>{
   e.preventDefault();
   const data={
-    eventId:document.getElementById('eventId').value,
-    eventType:document.getElementById('eventType').value,
+    eventId:selectedEventId,
+    eventType:selectedEventType,
     userId:document.getElementById('userId').value,
     userName:document.getElementById('userName').value,
     people:document.getElementById('people').value,
@@ -163,7 +171,7 @@ document.getElementById('registrationForm').addEventListener('submit',async(e)=>
 // 取消報名
 document.getElementById('cancelBtn').addEventListener('click',async()=>{
   const data={
-    eventId:document.getElementById('eventId').value,
+    eventId:selectedEventId,
     userId:document.getElementById('userId').value,
     action:'cancel'
   };
@@ -173,6 +181,17 @@ document.getElementById('cancelBtn').addEventListener('click',async()=>{
   });
   document.getElementById('result').innerText=await res.text();
   formFields.style.display='none';
+});
+
+window.addEventListener('DOMContentLoaded',async()=>{
+  await initLiff();
+  await loadEvents();
+  loadOptions('people','people');
+  loadOptions('table','table');
+  loadOptions('sponsor','sponsor');
+  loadOptions('pickup','pickup');
+  loadOptions('room','room');
+  loadOptions('sponsorQty','qty');
 });
 </script>
 </body>

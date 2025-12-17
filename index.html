@@ -143,19 +143,19 @@ $('eventSelect').onchange = () => {
   loadStats(o.value);
 };
 
-// --- 載入統計 ---
+// --- 載入統計 (優化顯示格式版) ---
 async function loadStats(eventId) {
   try {
     const data = await callApi('queryStats', `&eventId=${eventId}`);
     const isW = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
     
-    // 1. 人數
+    // 1. 人數統計 (保持不變)
     let total = 0;
     data.users.forEach(u => total += parseInt(u.people)||0);
     $('uStats').innerHTML = `<strong>👥 報名總人數：${total} 人</strong><br>` + 
       data.users.map(u => `${u.userName}(${u.people}人)`).join(', ');
 
-    // 2. 詳細 (桌/房)
+    // 2. 詳細統計 (優化顯示：將 ": 1" 改為 "(1人)")
     let det = `<strong>${isW ? '🗄️ 桌數統計' : '🏨 房型統計'}：</strong><br>`;
     const tar = isW ? data.tableStats : data.roomStats;
     const keys = Object.keys(tar).filter(k => k && k.trim() !== "" && k !== "undefined");
@@ -165,21 +165,24 @@ async function loadStats(eventId) {
         let unit = "";
         if (isW && !k.includes("桌")) unit = " 桌";
         if (!isW && !k.includes("間") && !k.includes("房")) unit = " 間";
-        det += `• ${k}: ${tar[k]}${unit}<br>`;
+        
+        // 💡 這裡將原本的 : ${tar[k]} 改成更加直觀的表示法
+        det += `• ${k}${unit} <span style="color:#666;">(${tar[k]}人報名)</span><br>`;
       });
     } else { det += '暫無資料'; }
     $('dStats').innerHTML = det;
 
-    // 3. 贊助
+    // 3. 贊助統計 (優化顯示)
     let sp = `<strong>🎁 贊助統計：</strong><br>`;
     const sk = Object.keys(data.sponsor).filter(k => k && k.trim() !== "");
     if(sk.length > 0) {
-      sk.forEach(k => sp += `• ${k}: ${data.sponsor[k]}<br>`);
+      sk.forEach(k => {
+        sp += `• ${k}: <span style="color:#d32f2f; font-weight:bold;">${data.sponsor[k]}</span><br>`;
+      });
     } else { sp += '暫無贊助'; }
     $('sStats').innerHTML = sp;
   } catch(e) { console.error('統計更新失敗'); }
 }
-
 // --- 表單送出 ---
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();

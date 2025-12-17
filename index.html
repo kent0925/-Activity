@@ -19,15 +19,7 @@
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
-  
-  /* 💡 強制確保地圖按鈕顯示與配色 */
-  #mapBtn { 
-    width: 100%; 
-    background: #4285F4 !important; 
-    margin-top:12px; 
-    display: block !important; 
-    color: white;
-  }
+  #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -91,9 +83,13 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 
-function formatIsoDate(str) {
-  if (!str || str === 'undefined') return '未定';
-  return str.includes('T') ? str.split('T')[0] : str;
+// 💡 強化版日期處理：強制截斷任何時間資訊，只留前 10 碼 (YYYY-MM-DD)
+function formatIsoDate(val) {
+  if (!val || val === 'undefined' || val === 'null') return '未定';
+  let s = String(val); // 強制轉為字串
+  if (s.includes('T')) return s.split('T')[0]; // 處理 2026-01-31T16...
+  if (s.length > 10) return s.substring(0, 10); // 處理其他長字串
+  return s;
 }
 
 async function callApi(action, extra = '') {
@@ -125,7 +121,8 @@ async function loadEvents(){
       const opt = document.createElement('option');
       opt.value = ev.eventId;
       opt.text = `${ev.title} (${ev.type})${isJoined ? ' 【 ✅ 已報名 】' : ''}`;
-      Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
+      // 將所有活動資料存入 dataset
+      Object.keys(ev).forEach(k => opt.dataset[k] = ev[k]);
       $('eventSelect').add(opt);
     });
   } catch(e) { $('eventSelect').innerHTML = '<option value="">活動載入失敗</option>'; }
@@ -144,16 +141,17 @@ $('eventSelect').onchange = () => {
   $('evStore').innerText = o.dataset.store || '無';
   $('evAddress').innerText = o.dataset.address || '無';
   
+  // 💡 修正日期顯示
   if (isW) {
     $('evTime').innerText = formatIsoDate(o.dataset.time);
   } else {
     $('evTime').innerText = `${formatIsoDate(o.dataset.startDate)} ~ ${formatIsoDate(o.dataset.endDate)}`;
   }
   
-  // 💡 修正後的 Google 地圖導航網址
+  // 💡 修正地圖連結
   $('mapBtn').onclick = () => {
     const addr = o.dataset.address;
-    if(addr && addr !== '無') {
+    if(addr && addr !== '無' && addr !== 'undefined') {
       window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
     } else { 
       alert('此活動未提供有效地址'); 

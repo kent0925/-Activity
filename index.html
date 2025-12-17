@@ -19,6 +19,7 @@
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
+  /* 地圖按鈕樣式 - 強制顯示 */
   #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -83,13 +84,28 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 
-// 💡 強化版日期處理：強制截斷任何時間資訊，只留前 10 碼 (YYYY-MM-DD)
-function formatIsoDate(val) {
-  if (!val || val === 'undefined' || val === 'null') return '未定';
-  let s = String(val); // 強制轉為字串
-  if (s.includes('T')) return s.split('T')[0]; // 處理 2026-01-31T16...
-  if (s.length > 10) return s.substring(0, 10); // 處理其他長字串
-  return s;
+// 💡 強化日期處理函式：日期 + (星期幾) + 選擇性時間
+function formatDateTime(val, includeTime = false) {
+  if (!val || val === 'undefined' || val === 'null' || val === '') return '未定';
+  
+  let dateStr = String(val).split('T')[0];
+  let d = new Date(dateStr);
+  
+  if (isNaN(d.getTime())) return dateStr;
+
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+  let dayName = weekDays[d.getDay()];
+  let result = `${dateStr} (${dayName})`;
+
+  // 尾牙需要顯示時間
+  if (includeTime && String(val).includes('T')) {
+    let timePart = String(val).split('T')[1].substring(0, 5); 
+    // 排除常見的時區自動偏移造成的 00:00 或 16:00
+    if (timePart !== "00:00" && timePart !== "16:00") {
+        result += ` ${timePart}`;
+    }
+  }
+  return result;
 }
 
 async function callApi(action, extra = '') {
@@ -121,8 +137,8 @@ async function loadEvents(){
       const opt = document.createElement('option');
       opt.value = ev.eventId;
       opt.text = `${ev.title} (${ev.type})${isJoined ? ' 【 ✅ 已報名 】' : ''}`;
-      // 將所有活動資料存入 dataset
-      Object.keys(ev).forEach(k => opt.dataset[k] = ev[k]);
+      // 存入所有欄位到 Dataset
+      Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
       $('eventSelect').add(opt);
     });
   } catch(e) { $('eventSelect').innerHTML = '<option value="">活動載入失敗</option>'; }
@@ -141,18 +157,22 @@ $('eventSelect').onchange = () => {
   $('evStore').innerText = o.dataset.store || '無';
   $('evAddress').innerText = o.dataset.address || '無';
   
-  // 💡 修正日期顯示
+  // 💡 處理時間顯示邏輯
   if (isW) {
-    $('evTime').innerText = formatIsoDate(o.dataset.time);
+    // 尾牙：日期(星期) + 時間
+    $('evTime').innerText = formatDateTime(o.dataset.time, true);
   } else {
-    $('evTime').innerText = `${formatIsoDate(o.dataset.startDate)} ~ ${formatIsoDate(o.dataset.endDate)}`;
+    // 旅遊：起日(星期) ~ 止日(星期)
+    const start = formatDateTime(o.dataset.startDate);
+    const end = formatDateTime(o.dataset.endDate);
+    $('evTime').innerText = `${start} ~ ${end}`;
   }
   
-  // 💡 修正地圖連結
+  // 💡 地圖按鈕綁定
   $('mapBtn').onclick = () => {
     const addr = o.dataset.address;
-    if(addr && addr !== '無' && addr !== 'undefined') {
-      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
+    if(addr && addr !== '無' && addr !== '') {
+      window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr), "_blank");
     } else { 
       alert('此活動未提供有效地址'); 
     }
@@ -203,7 +223,7 @@ $('regForm').onsubmit = async (e) => {
   const payload = {
     eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
     people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value,
-    sponsor: $('sponsor').value, sponsorOther: $('spOther').value, qty: $('qty').value, memo: $('memo').value
+    sponsor: $('sponsor').value, sponsorOther: $('spOther').value, qty: $('qtyLbl').style.display==='none'?'0':$('qty').value, memo: $('memo').value
   };
   try {
     const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);

@@ -58,14 +58,13 @@
     <label style="margin-top:20px;">備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
     <div class="btn-group">
       <button type="submit" id="subBtn">送出更新</button>
-      <button type="button" class="cancel" id="canBtn" onclick="location.reload()">重置選單</button>
+      <button type="button" class="cancel" onclick="location.reload()">重置選單</button>
     </div>
   </form>
 
   <div id="stats">
-    <h3 style="margin:0 0 10px 0; font-size:16px; color:#2e7d32;">📊 即時統計回報</h3>
     <div id="uStats"></div>
-    <div id="sStats"></div>
+    <div id="sStats" style="margin-top:10px;"></div>
   </div>
 </div>
 
@@ -85,8 +84,7 @@ function getDayOfWeek(dateStr) {
 function formatOnlyDate(val) {
   if (!val || val === 'undefined' || val === '') return '';
   const d = new Date(val);
-  if (isNaN(d.getTime())) return val;
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  return isNaN(d.getTime()) ? val : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
 async function callApi(action, extra = '') {
@@ -115,8 +113,7 @@ async function init(){
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
     evs.forEach(ev => {
       const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
-      const statusTag = isJoined ? ' (已報名)' : '';
-      const opt = new Option(`${ev.title} (${ev.type})${statusTag}`, ev.eventId);
+      const opt = new Option(`${ev.title} (${ev.type})${isJoined ? ' (已報名)' : ''}`, ev.eventId);
       Object.keys(ev).forEach(k => opt.dataset[k.toLowerCase()] = ev[k] || '');
       $('eventSelect').add(opt);
     });
@@ -135,16 +132,9 @@ function createSponsorRow() {
     <div class="sponsor-header"><span>贊助項目</span><button type="button" class="remove-btn" onclick="removeRow('${rowId}')">🗑️</button></div>
     <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"></select>
     <div class="qtyGrp" style="display:none; margin-top:8px;">
-      <select class="qtySelect" onchange="handleQtyChange('${rowId}')"></select>
-      
-      <input type="text" class="otherInput" placeholder="請輸入贊助內容(如:手工禮盒)" style="display:none;">
-
-      <div class="customQtyGrp qty-flex" style="display:none;">
-        <input type="number" class="cNum" value="5" min="1" style="width:70px">
-        <select class="cUnit" style="width:70px"><option value="瓶">瓶</option><option value="箱">箱</option></select>
-      </div>
-      
-      <div class="moneyGrp qty-flex" style="display:none;"><input type="number" class="mVal" value="0" step="500"> <span>元</span></div>
+      <select class="qtySelect" style="display:none;"></select>
+      <input type="text" class="otherInput" placeholder="請自填(如: 蛋糕2盒)" style="display:none;">
+      <div class="moneyGrp qty-flex" style="display:none;"><input type="number" class="mVal" value="0"> <span>元</span></div>
     </div>
   `;
   container.appendChild(div);
@@ -152,13 +142,8 @@ function createSponsorRow() {
   sel.add(new Option("-- 請選擇 --", ""));
   sel.add(new Option("無", "無"));
   masterOptions.sponsor.filter(s => s !== "無").forEach(s => sel.add(new Option(s, s)));
-  sel.add(new Option("其他", "其他"));
-}
-
-function removeRow(id) { 
-  $(id).remove(); 
-  checkSponsorAddButton();
-  if ($('sponsorContainer').children.length === 0) createSponsorRow(); 
+  // 關鍵校對點：增加單一其他選項
+  sel.add(new Option("其他 (自填項目)", "其他"));
 }
 
 function handleSponsorChange(rowId) {
@@ -166,36 +151,26 @@ function handleSponsorChange(rowId) {
   const qGrp = row.querySelector('.qtyGrp'), 
         qSel = row.querySelector('.qtySelect'), 
         oInp = row.querySelector('.otherInput'),
-        mGrp = row.querySelector('.moneyGrp'), 
-        cGrp = row.querySelector('.customQtyGrp');
+        mGrp = row.querySelector('.moneyGrp');
   
-  if(!val || val.includes('--') || val === '無') { 
-    qGrp.style.display = 'none'; 
-  } else {
-    qGrp.style.display = 'block';
-    qSel.style.display = oInp.style.display = mGrp.style.display = cGrp.style.display = 'none';
-    
-    if (val === '其他') {
-      oInp.style.display = 'block';
-    } else if(val === '紅包') {
-      mGrp.style.display = 'flex';
-    } else {
-      qSel.style.display = 'block';
-      qSel.innerHTML = '';
-      if(val.includes('酒')) {
-        ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱','其他(自填數量)'].forEach(t => qSel.add(new Option(t, t)));
-      } else {
-        masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
-      }
-    }
+  qGrp.style.display = (val && val !== '無' && !val.includes('--')) ? 'block' : 'none';
+  qSel.style.display = oInp.style.display = mGrp.style.display = 'none';
+
+  if (val === '其他') {
+    oInp.style.display = 'block';
+  } else if (val === '紅包') {
+    mGrp.style.display = 'flex';
+  } else if (val && val !== '無') {
+    qSel.style.display = 'block';
+    qSel.innerHTML = '';
+    // 關鍵校對點：酒類專屬清單
+    const items = val.includes('酒') ? ['1瓶','2瓶','3瓶','1箱(6瓶)','2箱'] : masterOptions.sponsorQty;
+    items.forEach(q => qSel.add(new Option(q, q)));
   }
   checkSponsorAddButton();
 }
 
-function handleQtyChange(rowId) {
-  const row = $(rowId), qVal = row.querySelector('.qtySelect').value;
-  row.querySelector('.customQtyGrp').style.display = (qVal === '其他(自填數量)') ? 'flex' : 'none';
-}
+function removeRow(id) { $(id).remove(); checkSponsorAddButton(); if ($('sponsorContainer').children.length === 0) createSponsorRow(); }
 
 function checkSponsorAddButton() {
   const items = document.querySelectorAll('.sponsor-item');
@@ -206,42 +181,28 @@ function checkSponsorAddButton() {
 $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) return;
+  const d = o.dataset;
+  const isW = d.type === '尾牙';
 
-  const type = o.dataset.type;
-  $('people').innerHTML = '';
-  masterOptions.people.forEach(p => $('people').add(new Option(p, p)));
+  const fill = (id, list) => { $(id).innerHTML = ''; list.forEach(x => $(id).add(new Option(x, x))); };
+  fill('people', masterOptions.people);
 
-  if (type === '尾牙') {
-    $('weiyaFields').style.display = 'block'; 
-    $('travelFields').style.display = 'none';
-    $('table').innerHTML = '';
-    masterOptions.table.forEach(t => $('table').add(new Option(t, t)));
-    
-    const datePart = formatOnlyDate(o.dataset.time);
-    const dayPart = getDayOfWeek(o.dataset.time);
-    const fullTime = o.dataset.time || '';
-    const timePart = fullTime.includes(' ') ? fullTime.split(' ')[1] : ''; 
+  if (isW) {
+    $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
+    fill('table', masterOptions.table);
+    // 關鍵校對點：時間格式化 (含週與精確時間)
+    const datePart = formatOnlyDate(d.time), dayPart = getDayOfWeek(d.time), timePart = (d.time || '').split(' ')[1] || ''; 
     $('evTime').innerText = `${datePart} ${dayPart} ${timePart}`.trim();
-    
   } else {
-    $('weiyaFields').style.display = 'none'; 
-    $('travelFields').style.display = 'block';
-    $('pickup').innerHTML = '';
-    $('room').innerHTML = '';
-    masterOptions.pickup.forEach(p => $('pickup').add(new Option(p, p)));
-    masterOptions.room.forEach(r => $('room').add(new Option(r, r)));
-    $('evTime').innerText = `${formatOnlyDate(o.dataset.startdate)} ~ ${formatOnlyDate(o.dataset.enddate)}`;
+    $('weiyaFields').style.display = 'none'; $('travelFields').style.display = 'block';
+    fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
+    $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
   }
 
-  $('eventInfo').style.display = $('regForm').style.display = 'block';
-  $('evTitle').innerText = o.dataset.title;
-  $('evHost').innerText = o.dataset.host;
-  $('evStore').innerText = o.dataset.store;
-  $('evAddress').innerText = o.dataset.address;
-  
-  $('sponsorContainer').innerHTML = '';
-  createSponsorRow();
-  loadStats(o.value);
+  $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
+  $('evStore').innerText = d.store; $('evAddress').innerText = d.address;
+  $('regForm').style.display = $('eventInfo').style.display = 'block';
+  $('sponsorContainer').innerHTML = ''; createSponsorRow(); loadStats(o.value);
 };
 
 $('regForm').onsubmit = async (e) => {
@@ -249,51 +210,40 @@ $('regForm').onsubmit = async (e) => {
   const sponsorList = [];
   document.querySelectorAll('.sponsor-item').forEach(row => {
     const name = row.querySelector('.sponsor-select').value;
-    if(!name || name.includes('--') || name === '無') return;
-    
-    let result = "";
+    if(!name || name === '無' || name.includes('--')) return;
     if (name === '其他') {
-      result = row.querySelector('.otherInput').value || "其他";
+      const custom = row.querySelector('.otherInput').value; if(custom) sponsorList.push(custom);
     } else if (name === '紅包') {
-      result = `紅包(${row.querySelector('.mVal').value}元)`;
+      sponsorList.push(`紅包(${row.querySelector('.mVal').value}元)`);
     } else {
-      let qty = row.querySelector('.qtySelect').value;
-      if(qty === '其他(自填數量)') qty = row.querySelector('.cNum').value + row.querySelector('.cUnit').value;
-      result = `${name}(${qty})`;
+      sponsorList.push(`${name}(${row.querySelector('.qtySelect').value})`);
     }
-    sponsorList.push(result);
   });
   
   $('subBtn').disabled = true;
-  const o = $('eventSelect').selectedOptions[0];
+  const o = $('eventSelect').selectedOptions[0].dataset;
   const payload = {
-    eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
-    people: $('people').value, table: $('table')?.offsetParent ? $('table').value : "", 
-    pickup: $('pickup')?.offsetParent ? $('pickup').value : "", room: $('room')?.offsetParent ? $('room').value : "",
+    eventId: o.eventid, userId: $('userId').value, userName: $('userName').value,
+    people: $('people').value, table: o.type==='尾牙'?$('table').value:'',
+    pickup: o.type==='旅遊'?$('pickup').value:'', room: o.type==='旅遊'?$('room').value:'',
     sponsor: sponsorList.join(', ') || '無', memo: $('memo').value
   };
   const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
-  alert(r.message);
-  location.reload();
+  alert(r.message); location.reload();
 };
 
 async function loadStats(eventId) {
   const data = await callApi('queryStats', `&eventId=${eventId}`);
-  let total = 0; if(data.users) data.users.forEach(u => total += parseInt(u.people)||0);
+  let total = data.users?.reduce((s, u) => s + (parseInt(u.people)||0), 0) || 0;
   $('uStats').innerHTML = `<strong>👤 總報名：${total} 人</strong>`;
   let sp = `<strong>🎁 贊助清單：</strong><br>`;
-  if(data.sponsor) Object.keys(data.sponsor).forEach(k => { sp += `• ${k}: ${data.sponsor[k]}<br>`; });
-  $('sStats').innerHTML = sp;
-  $('stats').style.display = 'block';
+  if(data.sponsor) Object.keys(data.sponsor).forEach(k => sp += `• ${k}: ${data.sponsor[k]}<br>`);
+  $('sStats').innerHTML = sp; $('stats').style.display = 'block';
 }
 
 $('mapBtn').onclick = () => {
-  const addr = $('evAddress').innerText;
-  const store = $('evStore').innerText;
-  if(addr) {
-    const query = encodeURIComponent(`${store} ${addr}`);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-  }
+  const query = encodeURIComponent(`${$('evStore').innerText} ${$('evAddress').innerText}`);
+  window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
 };
 
 window.onload = init;

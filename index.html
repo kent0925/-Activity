@@ -21,6 +21,7 @@
   .remove-btn { background: none; color: #ff4d4d; border: none; cursor: pointer; font-size: 18px; font-weight: bold; }
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .qty-flex { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .custom-qty-grp { display: flex; gap: 5px; margin-top: 8px; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -116,7 +117,6 @@ function createSponsorRow() {
   const otherCount = currentSelects.filter(v => v === '其他').length;
   const selectedNormal = currentSelects.filter(v => v !== '' && v !== '無' && v !== '其他');
   
-  // 過濾掉選單中已經選過的項目，且同時排除掉資料庫裡的「其他」字眼，統一由下方程式碼加入
   const availableSponsors = masterOptions.sponsor.filter(s => s !== "無" && s !== "其他" && !selectedNormal.includes(s));
 
   const rowId = 'spRow_' + Date.now();
@@ -126,9 +126,18 @@ function createSponsorRow() {
     <div class="sponsor-header"><span>贊助項目</span><button type="button" class="remove-btn" onclick="removeRow('${rowId}')">🗑️</button></div>
     <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"></select>
     <div class="qtyGrp" style="display:none; margin-top:8px;">
-      <select class="qtySelect" style="display:none;"></select>
-      <input type="text" class="otherInput" placeholder="請自填項目與數量" style="display:none;">
-      <div class="moneyGrp qty-flex" style="display:none;"><input type="number" class="mVal" value="0"> <span>元</span></div>
+      <select class="qtySelect" onchange="handleQtyChange('${rowId}')" style="display:none;"></select>
+      <input type="text" class="otherInput" placeholder="請自填項目" style="display:none;">
+      <div class="custom-qty-grp" style="display:none;">
+        <input type="number" class="cQty" value="5" onchange="validateCustomQty('${rowId}')">
+        <select class="cUnit" onchange="validateCustomQty('${rowId}')">
+          <option value="瓶">瓶</option>
+          <option value="箱">箱</option>
+        </select>
+      </div>
+      <div class="moneyGrp qty-flex" style="display:none;">
+        <input type="number" class="mVal" value="0" min="0" oninput="if(value<0)value=0"> <span>元</span>
+      </div>
     </div>`;
   $('sponsorContainer').appendChild(div);
   
@@ -138,7 +147,6 @@ function createSponsorRow() {
   
   availableSponsors.forEach(s => sel.add(new Option(s, s)));
   
-  // 核心修正：全案只在此處保留一個「其他」定義
   if (otherCount < 5) {
     sel.add(new Option("其他 (自填項目)", "其他"));
   }
@@ -147,10 +155,11 @@ function createSponsorRow() {
 function handleSponsorChange(rowId) {
   const row = $(rowId), val = row.querySelector('.sponsor-select').value;
   const qGrp = row.querySelector('.qtyGrp'), qSel = row.querySelector('.qtySelect'), 
-        oInp = row.querySelector('.otherInput'), mGrp = row.querySelector('.moneyGrp');
+        oInp = row.querySelector('.otherInput'), mGrp = row.querySelector('.moneyGrp'),
+        cGrp = row.querySelector('.custom-qty-grp');
   
   qGrp.style.display = (val && val !== '無') ? 'block' : 'none';
-  qSel.style.display = oInp.style.display = mGrp.style.display = 'none';
+  qSel.style.display = oInp.style.display = mGrp.style.display = cGrp.style.display = 'none';
 
   if (val === '其他') {
     oInp.style.display = 'block';
@@ -158,10 +167,29 @@ function handleSponsorChange(rowId) {
     mGrp.style.display = 'flex';
   } else if (val && val !== '無') {
     qSel.style.display = 'block'; qSel.innerHTML = '';
-    const items = val.includes('酒') ? ['1瓶','2瓶','3瓶','1箱(6瓶)','2箱'] : masterOptions.sponsorQty;
+    let items = [];
+    if(val.includes('酒')){
+       items = ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱','2箱','3箱','4箱','自定義數量'];
+    } else {
+       items = masterOptions.sponsorQty;
+    }
     items.forEach(q => qSel.add(new Option(q, q)));
   }
   checkSponsorAddButton();
+}
+
+function handleQtyChange(rowId) {
+  const row = $(rowId), qVal = row.querySelector('.qtySelect').value;
+  const cGrp = row.querySelector('.custom-qty-grp');
+  cGrp.style.display = (qVal === '自定義數量') ? 'flex' : 'none';
+  if(qVal === '自定義數量') validateCustomQty(rowId);
+}
+
+function validateCustomQty(rowId) {
+  const row = $(rowId), unit = row.querySelector('.cUnit').value, input = row.querySelector('.cQty');
+  let val = parseInt(input.value) || 0;
+  if (unit === '瓶' && val < 5) input.value = 5;
+  if (unit === '箱' && val < 4) input.value = 4;
 }
 
 function removeRow(id) { $(id).remove(); checkSponsorAddButton(); if ($('sponsorContainer').children.length === 0) createSponsorRow(); }
@@ -189,18 +217,13 @@ $('eventSelect').onchange = () => {
   if (isW) {
     $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
     fill('table', masterOptions.table);
-    
-    // 時間差修復邏輯
     const rawTime = d.time || '';
     const dt = new Date(rawTime);
     const dateStr = formatOnlyDate(rawTime);
     const dayStr = getDayOfWeek(rawTime);
-    
-    // 確保 24 小時制正確顯示 (17:00 不會變 07:00)
     let hh = dt.getHours();
     let mm = dt.getMinutes();
     const timePart = isNaN(hh) ? "" : `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
-    
     $('evTime').innerText = `${dateStr} ${dayStr} ${timePart}`.trim();
   } else {
     $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
@@ -225,7 +248,12 @@ $('regForm').onsubmit = async (e) => {
     } else if (name === '紅包') {
       sponsorList.push(`紅包(${row.querySelector('.mVal').value}元)`);
     } else {
-      sponsorList.push(`${name}(${row.querySelector('.qtySelect').value})`);
+      const qSel = row.querySelector('.qtySelect').value;
+      if(qSel === '自定義數量'){
+        sponsorList.push(`${name}(${row.querySelector('.cQty').value}${row.querySelector('.cUnit').value})`);
+      } else {
+        sponsorList.push(`${name}(${qSel})`);
+      }
     }
   });
   

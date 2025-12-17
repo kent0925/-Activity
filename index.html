@@ -13,7 +13,7 @@
   .btn-group { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-top: 25px; }
   button { padding:12px; width:48%; border:none; border-radius:6px; background:#4CAF50; color:#fff; cursor: pointer; font-weight: bold; transition: 0.3s; }
   button.reset { background:#9e9e9e; }
-  /* 取消報名紅色按鈕 */
+  /* 取消報名按鈕 */
   button.delete-btn { background:#e53935; width: 100%; margin-top: 10px; } 
   #eventInfo, #stats { margin-top:15px; padding:15px; border-radius:8px; display:none; }
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
@@ -60,7 +60,7 @@
     
     <label style="margin-top:20px;">備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
     <div class="btn-group">
-      <button type="submit" id="subBtn">送出更新</button>
+      <button type="submit" id="subBtn">送出報名</button>
       <button type="button" class="reset" onclick="location.reload()">重置選單</button>
       <button type="button" id="cancelBtn" class="delete-btn" style="display:none;">❌ 取消報名 (徹底移除資料)</button>
     </div>
@@ -203,7 +203,11 @@ $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) return;
   const d = o.dataset, isW = d.type === '尾牙';
-  $('cancelBtn').style.display = (d.joined === 'true') ? 'block' : 'none';
+  
+  // 核心修改：判斷報名狀態切換按鈕文字與顯隱
+  const joined = d.joined === 'true';
+  $('subBtn').innerText = joined ? '編輯報名' : '送出報名';
+  $('cancelBtn').style.display = joined ? 'block' : 'none';
 
   const fill = (id, list) => { $(id).innerHTML = ''; list.forEach(x => $(id).add(new Option(x, x))); };
   fill('people', masterOptions.people);
@@ -261,7 +265,6 @@ $('regForm').onsubmit = async (e) => {
   alert(r.message); location.reload();
 };
 
-// 還原為具名統計邏輯 (修正顯示與 x 1 問題)
 async function loadStats(eventId) {
   const data = await callApi('queryStats', `&eventId=${eventId}`);
   let total = data.users?.reduce((s, u) => s + (parseInt(u.people)||0), 0) || 0;
@@ -275,11 +278,9 @@ async function loadStats(eventId) {
   let hasSponsor = false;
   if(data.users) {
     data.users.forEach(u => {
-      // 判斷是否有贊助內容且非 "無"
       if(u.sponsor && u.sponsor !== '無') {
         hasSponsor = true;
         u.sponsor.split(',').forEach(item => {
-          // 還原具名條列：項目 - 姓名
           spHtml += `• ${item.trim()} - <span style="color:#1a73e8;">${u.userName}</span><br>`;
         });
       }

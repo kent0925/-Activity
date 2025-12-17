@@ -26,20 +26,16 @@
   .sponsor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
   .remove-btn { background: none; color: #ff4d4d; border: none; cursor: pointer; font-size: 18px; padding: 0 5px; }
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
-  .sponsor-tip { font-size: 12px; color: #666; margin: 10px 0; background: #fffde7; padding: 8px; border-radius: 6px; border: 1px solid #fff59d; }
-  .qty-input-wrap { position: relative; display: flex; align-items: center; }
-  .qty-input-wrap input { padding-right: 40px; }
-  .qty-unit { position: absolute; right: 10px; top: 14px; color: #666; font-size: 14px; pointer-events: none; }
+  .qty-flex { display: flex; gap: 5px; margin-top: 5px; align-items: center; }
+  .qty-flex input { flex: 2; }
+  .qty-flex select { flex: 1; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
 <div class="container">
   <h2>旅遊 / 尾牙 報名系統</h2>
-  
-  <label>選擇活動：
-    <select id="eventSelect"><option value="">載入中...</option></select>
-  </label>
+  <label>選擇活動：<select id="eventSelect"><option value="">載入中...</option></select></label>
 
   <div id="eventInfo">
     <h3 id="evTitle" style="margin:0 0 8px 0; color:#1a73e8;"></h3>
@@ -62,20 +58,11 @@
     </div>
     
     <hr style="margin:20px 0; border:0; border-top:1px solid #eee;">
-    
     <label>🎁 贊助項目管理：</label>
     <div id="sponsorContainer"></div>
     <button type="button" class="add-sponsor-btn" id="addSponsorBtn">➕ 新增贊助項目</button>
     
-    <div class="sponsor-tip" id="sponsorTip">
-      💡 <b>贊助說明：</b><br>
-      • 選擇「酒類」可選瓶或箱。<br>
-      • 選擇「紅包」可填金額。<br>
-      • 選擇「無」隱藏所有選項。
-    </div>
-
-    <label>備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
-
+    <label style="margin-top:20px;">備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
     <div class="btn-group">
       <button type="submit" id="subBtn">送出更新</button>
       <button type="button" class="cancel" id="canBtn">取消報名</button>
@@ -86,7 +73,6 @@
   <div id="stats">
     <h3 style="margin:0 0 10px 0; font-size:16px; color:#2e7d32;">📊 即時統計回報</h3>
     <div id="uStats" class="stat-item"></div>
-    <div id="dStats" class="stat-item"></div>
     <div id="sStats" class="stat-item"></div>
   </div>
 </div>
@@ -99,13 +85,12 @@ const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [] };
 
 function formatDateTime(val, includeTime = false) {
-  if (!val || val === 'undefined' || val === 'null' || val === '') return '未定';
+  if (!val || val === '' || val === 'undefined') return '未定';
   let d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
-  if (String(val).includes('T')) { d.setHours(d.getHours() + 8); }
+  if (String(val).includes('T')) d.setHours(d.getHours() + 8);
   const Y = d.getFullYear(), M = String(d.getMonth() + 1).padStart(2, '0'), D = String(d.getDate()).padStart(2, '0');
-  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-  let res = `${Y}-${M}-${D} (${weekDays[d.getDay()]})`;
+  let res = `${Y}-${M}-${D}`;
   if (includeTime) res += ` ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   return res;
 }
@@ -115,7 +100,7 @@ async function callApi(action, extra = '') {
   return await r.json();
 }
 
-function createSponsorRow(isInitial = false) {
+function createSponsorRow() {
   const container = $('sponsorContainer');
   const rowId = 'spRow_' + Date.now();
   const div = document.createElement('div');
@@ -124,13 +109,19 @@ function createSponsorRow(isInitial = false) {
   div.innerHTML = `
     <div class="sponsor-header">
       <span>贊助項目</span>
-      <button type="button" class="remove-btn" onclick="removeRow('${rowId}')" title="移除">🗑️</button>
+      <button type="button" class="remove-btn" onclick="removeRow('${rowId}')">🗑️</button>
     </div>
     <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"></select>
-    <div class="spOtherGrp" style="display:none; margin-top:5px;"><input type="text" class="spOtherInput" placeholder="輸入名稱"></div>
+    <div class="spOtherGrp" style="display:none; margin-top:5px;"><input type="text" class="spOtherInput" placeholder="輸入其他項目名稱"></div>
     <div class="qtyGrp" style="display:none; margin-top:5px;">
-      <select class="qtySelect"></select>
-      <div class="qtyInputWrap" style="display:none;"><input type="number" class="qtyInput" step="500" min="0" value="0"><span class="qty-unit">元</span></div>
+      <select class="qtySelect" onchange="handleQtySelectChange('${rowId}')"></select>
+      <div class="qtyCustomGrp qty-flex" style="display:none;">
+        <input type="number" class="qtyCustomNum" min="0" value="1" placeholder="數量">
+        <select class="qtyCustomUnit"><option value="瓶">瓶</option><option value="箱">箱</option></select>
+      </div>
+      <div class="moneyGrp qty-flex" style="display:none;">
+        <input type="number" class="moneyInput" step="500" min="0" value="0"><span>元</span>
+      </div>
     </div>
   `;
   container.appendChild(div);
@@ -139,15 +130,13 @@ function createSponsorRow(isInitial = false) {
 
 function removeRow(id) { 
   $(id).remove(); 
-  if ($('sponsorContainer').children.length === 0) createSponsorRow(true);
+  if ($('sponsorContainer').children.length === 0) createSponsorRow();
   updateSponsorOptions(); 
 }
 
 function updateSponsorOptions() {
   const selects = document.querySelectorAll('.sponsor-select');
   const selectedValues = Array.from(selects).map(s => s.value).filter(v => v !== "" && v !== "其他" && v !== "無");
-  const hasItems = selects.length > 0;
-
   selects.forEach(select => {
     const cur = select.value;
     select.innerHTML = '<option value="">-- 請選擇 --</option>';
@@ -163,27 +152,34 @@ function updateSponsorOptions() {
 function handleSponsorChange(rowId) {
   const row = $(rowId), val = row.querySelector('.sponsor-select').value;
   const oGrp = row.querySelector('.spOtherGrp'), qGrp = row.querySelector('.qtyGrp'), 
-        qSel = row.querySelector('.qtySelect'), qInp = row.querySelector('.qtyInputWrap');
+        qSel = row.querySelector('.qtySelect'), qCustom = row.querySelector('.qtyCustomGrp'), mGrp = row.querySelector('.moneyGrp');
   
-  // 更新新增按鈕顯示：如果選「無」則隱藏新增按鈕
   $('addSponsorBtn').style.display = (val === '無' || val === '') ? 'none' : 'block';
 
   if (val === '無' || val === '') {
     oGrp.style.display = qGrp.style.display = 'none';
   } else if (val === '其他') {
     oGrp.style.display = 'block'; qGrp.style.display = 'none';
-  } else if (val === '紅包') {
-    oGrp.style.display = 'none'; qGrp.style.display = 'block'; qSel.style.display = 'none'; qInp.style.display = 'flex';
   } else {
-    oGrp.style.display = 'none'; qGrp.style.display = 'block'; qInp.style.display = 'none'; qSel.style.display = 'block';
-    qSel.innerHTML = '';
-    // 酒類特殊處理
-    if (val.includes('酒')) {
-      ['1瓶','2瓶','3瓶','4瓶','5瓶','6瓶','1箱(12瓶)','2箱'].forEach(t => qSel.add(new Option(t, t)));
+    oGrp.style.display = 'none'; qGrp.style.display = 'block';
+    if (val === '紅包') {
+      qSel.style.display = qCustom.style.display = 'none'; mGrp.style.display = 'flex';
     } else {
-      masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
+      mGrp.style.display = 'none'; qSel.style.display = 'block';
+      qSel.innerHTML = '';
+      if (val.includes('酒')) {
+        ['1瓶','2瓶','3瓶','1箱(12瓶)','2箱','其他(自填數量)'].forEach(t => qSel.add(new Option(t, t)));
+      } else {
+        masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
+      }
+      handleQtySelectChange(rowId);
     }
   }
+}
+
+function handleQtySelectChange(rowId) {
+  const row = $(rowId), qSel = row.querySelector('.qtySelect'), qCustom = row.querySelector('.qtyCustomGrp');
+  qCustom.style.display = (qSel.value === '其他(自填數量)') ? 'flex' : 'none';
 }
 
 $('regForm').onsubmit = async (e) => {
@@ -194,9 +190,16 @@ $('regForm').onsubmit = async (e) => {
     const sel = row.querySelector('.sponsor-select').value;
     if(!sel || sel === '無') return;
     let name = sel, qty = "";
-    if(sel === '其他') { name = row.querySelector('.spOtherInput').value || '其他'; qty = "1"; }
-    else if(sel === '紅包') qty = row.querySelector('.qtyInput').value;
-    else qty = row.querySelector('.qtySelect').value;
+    if(sel === '其他') { 
+      name = row.querySelector('.spOtherInput').value || '其他'; qty = "1"; 
+    } else if(sel === '紅包') {
+      qty = row.querySelector('.moneyInput').value;
+    } else {
+      const qVal = row.querySelector('.qtySelect').value;
+      if (qVal === '其他(自填數量)') {
+        qty = row.querySelector('.qtyCustomNum').value + row.querySelector('.qtyCustomUnit').value;
+      } else { qty = qVal; }
+    }
     sponsorList.push(`${name}(${qty})`);
   });
 
@@ -244,7 +247,7 @@ $('eventSelect').onchange = () => {
   $('weiyaFields').style.display = o.dataset.type === '尾牙' ? 'block' : 'none';
   $('travelFields').style.display = o.dataset.type === '尾牙' ? 'none' : 'block';
   $('sponsorContainer').innerHTML = '';
-  createSponsorRow(true);
+  createSponsorRow();
   loadStats(o.value);
 };
 

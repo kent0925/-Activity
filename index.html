@@ -21,11 +21,11 @@
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
   #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
 
-  /* 贊助區塊專屬樣式 */
+  /* 贊助區塊樣式 */
   .sponsor-item { background: #fdfdfd; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 10px; position: relative; }
   .sponsor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-  .remove-btn { background: #ff4d4d; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 12px; line-height: 1; }
-  .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; }
+  .remove-btn { background: none; color: #ff4d4d; border: none; cursor: pointer; font-size: 18px; padding: 0 5px; }
+  .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .sponsor-tip { font-size: 12px; color: #666; margin: 10px 0; background: #fffde7; padding: 8px; border-radius: 6px; border: 1px solid #fff59d; }
   .qty-input-wrap { position: relative; display: flex; align-items: center; }
   .qty-input-wrap input { padding-right: 40px; }
@@ -43,10 +43,10 @@
 
   <div id="eventInfo">
     <h3 id="evTitle" style="margin:0 0 8px 0; color:#1a73e8;"></h3>
-    <p style="margin:4px 0;">👤 主辦人：<span id="evHost"></span></p>
-    <p style="margin:4px 0;">📅 時間：<span id="evTime"></span></p>
-    <p style="margin:4px 0;">📍 地點：<span id="evStore"></span></p>
-    <p style="margin:4px 0;">🏠 地址：<span id="evAddress"></span></p>
+    <p>👤 主辦人：<span id="evHost"></span></p>
+    <p>📅 時間：<span id="evTime"></span></p>
+    <p>📍 地點：<span id="evStore"></span></p>
+    <p>🏠 地址：<span id="evAddress"></span></p>
     <button type="button" id="mapBtn">📍 開啟 Google 地圖</button>
   </div>
 
@@ -55,9 +55,7 @@
     <label>報名者姓名：<input type="text" id="userName" readonly></label>
     <label>參加人數：<select id="people"></select></label>
     
-    <div id="weiyaFields" style="display:none;">
-      <label>認桌數量：<select id="table"></select></label>
-    </div>
+    <div id="weiyaFields" style="display:none;"><label>認桌數量：<select id="table"></select></label></div>
     <div id="travelFields" style="display:none;">
       <label>上車地點：<select id="pickup"></select></label>
       <label>房型選擇：<select id="room"></select></label>
@@ -69,12 +67,11 @@
     <div id="sponsorContainer"></div>
     <button type="button" class="add-sponsor-btn" id="addSponsorBtn">➕ 新增贊助項目</button>
     
-    <div class="sponsor-tip">
-      💡 <b>操作說明：</b><br>
-      • 選「紅包」：可自填金額。<br>
-      • 選「其他」：免填數量，上限 5 項。<br>
-      • 選「無」：隱藏後續選項。<br>
-      • 同一項目不可重複選擇。
+    <div class="sponsor-tip" id="sponsorTip">
+      💡 <b>贊助說明：</b><br>
+      • 選擇「酒類」可選瓶或箱。<br>
+      • 選擇「紅包」可填金額。<br>
+      • 選擇「無」隱藏所有選項。
     </div>
 
     <label>備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
@@ -118,65 +115,80 @@ async function callApi(action, extra = '') {
   return await r.json();
 }
 
-function createSponsorRow() {
+function createSponsorRow(isInitial = false) {
   const container = $('sponsorContainer');
-  const selects = container.querySelectorAll('.sponsor-select');
-  const otherCount = Array.from(selects).filter(s => s.value === '其他').length;
-  if (otherCount >= 5) { alert("「其他」項目最多增加 5 項"); return; }
-
   const rowId = 'spRow_' + Date.now();
   const div = document.createElement('div');
   div.className = 'sponsor-item';
   div.id = rowId;
   div.innerHTML = `
-    <div class="sponsor-header"><span>贊助項目</span><button type="button" class="remove-btn" onclick="removeRow('${rowId}')">✖</button></div>
+    <div class="sponsor-header">
+      <span>贊助項目</span>
+      <button type="button" class="remove-btn" onclick="removeRow('${rowId}')" title="移除">🗑️</button>
+    </div>
     <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"></select>
-    <div class="spOtherGrp" style="display:none; margin-top:5px;"><input type="text" class="spOtherInput" placeholder="請輸入自定義項目名稱"></div>
+    <div class="spOtherGrp" style="display:none; margin-top:5px;"><input type="text" class="spOtherInput" placeholder="輸入名稱"></div>
     <div class="qtyGrp" style="display:none; margin-top:5px;">
       <select class="qtySelect"></select>
-      <div class="qtyInputWrap" style="display:none;"><input type="number" class="qtyInput" placeholder="金額" step="500" min="0" value="0"><span class="qty-unit">元</span></div>
+      <div class="qtyInputWrap" style="display:none;"><input type="number" class="qtyInput" step="500" min="0" value="0"><span class="qty-unit">元</span></div>
     </div>
   `;
   container.appendChild(div);
   updateSponsorOptions();
 }
 
-function removeRow(id) { $(id).remove(); updateSponsorOptions(); }
+function removeRow(id) { 
+  $(id).remove(); 
+  if ($('sponsorContainer').children.length === 0) createSponsorRow(true);
+  updateSponsorOptions(); 
+}
 
 function updateSponsorOptions() {
   const selects = document.querySelectorAll('.sponsor-select');
   const selectedValues = Array.from(selects).map(s => s.value).filter(v => v !== "" && v !== "其他" && v !== "無");
+  const hasItems = selects.length > 0;
 
   selects.forEach(select => {
-    const currentVal = select.value;
+    const cur = select.value;
     select.innerHTML = '<option value="">-- 請選擇 --</option>';
     masterOptions.sponsor.forEach(opt => {
-      if (selectedValues.includes(opt) && opt !== currentVal && opt !== "其他" && opt !== "無") return;
+      if (selectedValues.includes(opt) && opt !== cur && opt !== "其他" && opt !== "無") return;
       select.add(new Option(opt, opt));
     });
-    select.value = currentVal;
+    select.value = cur;
     handleSponsorChange(select.closest('.sponsor-item').id);
   });
 }
 
 function handleSponsorChange(rowId) {
-  const row = $(rowId);
-  const val = row.querySelector('.sponsor-select').value;
-  const oGrp = row.querySelector('.spOtherGrp'), qGrp = row.querySelector('.qtyGrp'), qSel = row.querySelector('.qtySelect'), qInp = row.querySelector('.qtyInputWrap');
-  if(qSel.options.length === 0) masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
+  const row = $(rowId), val = row.querySelector('.sponsor-select').value;
+  const oGrp = row.querySelector('.spOtherGrp'), qGrp = row.querySelector('.qtyGrp'), 
+        qSel = row.querySelector('.qtySelect'), qInp = row.querySelector('.qtyInputWrap');
+  
+  // 更新新增按鈕顯示：如果選「無」則隱藏新增按鈕
+  $('addSponsorBtn').style.display = (val === '無' || val === '') ? 'none' : 'block';
 
-  // 💡 邏輯：選擇「無」全部隱藏
-  if (val === '無' || val === '') { oGrp.style.display = qGrp.style.display = 'none'; }
-  else if (val === '其他') { oGrp.style.display = 'block'; qGrp.style.display = 'none'; }
-  else if (val === '紅包') { oGrp.style.display = 'none'; qGrp.style.display = 'block'; qSel.style.display = 'none'; qInp.style.display = 'flex'; }
-  else { oGrp.style.display = 'none'; qGrp.style.display = 'block'; qSel.style.display = 'block'; qInp.style.display = 'none'; }
+  if (val === '無' || val === '') {
+    oGrp.style.display = qGrp.style.display = 'none';
+  } else if (val === '其他') {
+    oGrp.style.display = 'block'; qGrp.style.display = 'none';
+  } else if (val === '紅包') {
+    oGrp.style.display = 'none'; qGrp.style.display = 'block'; qSel.style.display = 'none'; qInp.style.display = 'flex';
+  } else {
+    oGrp.style.display = 'none'; qGrp.style.display = 'block'; qInp.style.display = 'none'; qSel.style.display = 'block';
+    qSel.innerHTML = '';
+    // 酒類特殊處理
+    if (val.includes('酒')) {
+      ['1瓶','2瓶','3瓶','4瓶','5瓶','6瓶','1箱(12瓶)','2箱'].forEach(t => qSel.add(new Option(t, t)));
+    } else {
+      masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
+    }
+  }
 }
 
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   $('subBtn').disabled = true;
-  $('result').innerHTML = '<span>傳輸中...</span>';
-  
   const sponsorList = [];
   document.querySelectorAll('.sponsor-item').forEach(row => {
     const sel = row.querySelector('.sponsor-select').value;
@@ -195,22 +207,18 @@ $('regForm').onsubmit = async (e) => {
     sponsor: sponsorList.join(', ') || '無', memo: $('memo').value
   };
 
-  try {
-    const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
-    $('result').innerHTML = `<span style="color:blue;">${r.message}</span>`;
-    loadStats(o.value);
-  } catch(e) { $('result').innerText = '儲存失敗'; }
-  finally { $('subBtn').disabled = false; }
+  const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
+  $('result').innerHTML = `<span style="color:blue;">${r.message}</span>`;
+  loadStats(o.value);
+  $('subBtn').disabled = false;
 };
 
 async function init(){
-  try {
-    await liff.init({ liffId: LIFF_ID });
-    if(!liff.isLoggedIn()) { liff.login(); return; }
-    const p = await liff.getProfile();
-    $('userName').value = p.displayName; $('userId').value = p.userId;
-    loadEvents();
-  } catch(e) {}
+  await liff.init({ liffId: LIFF_ID });
+  if(!liff.isLoggedIn()) liff.login();
+  const p = await liff.getProfile();
+  $('userName').value = p.displayName; $('userId').value = p.userId;
+  loadEvents();
 }
 
 async function loadEvents(){
@@ -227,40 +235,28 @@ async function loadEvents(){
 $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) return;
-  const isW = o.dataset.type === '尾牙';
   $('eventInfo').style.display = $('regForm').style.display = $('stats').style.display = 'block';
   $('evTitle').innerText = o.dataset.title;
-  $('evHost').innerText = o.dataset.host || '無';
-  $('evStore').innerText = o.dataset.store || '無';
-  $('evAddress').innerText = o.dataset.address || '無';
-  $('evTime').innerText = isW ? formatDateTime(o.dataset.time, true) : `${formatDateTime(o.dataset.startDate)} ~ ${formatDateTime(o.dataset.endDate)}`;
-  $('mapBtn').onclick = () => {
-    const addr = o.dataset.address;
-    if(addr && addr !== '無') window.open("http://maps.google.com/?q=" + encodeURIComponent(addr), "_blank");
-  };
-  $('weiyaFields').style.display = isW ? 'block' : 'none';
-  $('travelFields').style.display = isW ? 'none' : 'block';
+  $('evHost').innerText = o.dataset.host;
+  $('evStore').innerText = o.dataset.store;
+  $('evAddress').innerText = o.dataset.address;
+  $('evTime').innerText = o.dataset.type === '尾牙' ? formatDateTime(o.dataset.time, true) : `${formatDateTime(o.dataset.startDate)} ~ ${formatDateTime(o.dataset.endDate)}`;
+  $('weiyaFields').style.display = o.dataset.type === '尾牙' ? 'block' : 'none';
+  $('travelFields').style.display = o.dataset.type === '尾牙' ? 'none' : 'block';
   $('sponsorContainer').innerHTML = '';
-  createSponsorRow();
+  createSponsorRow(true);
   loadStats(o.value);
 };
 
 $('addSponsorBtn').onclick = createSponsorRow;
 
 async function loadStats(eventId) {
-  try {
-    const data = await callApi('queryStats', `&eventId=${eventId}`);
-    let total = 0; data.users.forEach(u => total += parseInt(u.people)||0);
-    $('uStats').innerHTML = `<strong>👥 總人數：${total}</strong><br>` + (data.users.map(u => `${u.userName}(${u.people})`).join(', '));
-    const isW = $('eventSelect').selectedOptions[0].dataset.type === '尾牙';
-    const tar = isW ? data.tableStats : data.roomStats;
-    let det = `<strong>${isW ? '🗄️ 桌數' : '🏨 房型'}：</strong><br>`;
-    Object.keys(tar).forEach(k => { if(k!=="undefined") det += `• ${k} (${tar[k]}人)<br>`; });
-    $('dStats').innerHTML = det;
-    let sp = `<strong>🎁 贊助：</strong><br>`;
-    Object.keys(data.sponsor).forEach(k => { sp += `• ${k}: ${data.sponsor[k]}<br>`; });
-    $('sStats').innerHTML = sp;
-  } catch(e) {}
+  const data = await callApi('queryStats', `&eventId=${eventId}`);
+  let total = 0; data.users.forEach(u => total += parseInt(u.people)||0);
+  $('uStats').innerHTML = `<strong>👥 總人數：${total}</strong><br>` + (data.users.map(u => `${u.userName}(${u.people})`).join(', '));
+  let sp = `<strong>🎁 贊助加總：</strong><br>`;
+  Object.keys(data.sponsor).forEach(k => { sp += `• ${k}: ${data.sponsor[k]}<br>`; });
+  $('sStats').innerHTML = sp;
 }
 
 window.onload = async () => {

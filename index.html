@@ -108,40 +108,36 @@ button.cancel { background:#f44336; }
 </div>
 
 <script>
-/* ===== 設定 ===== */
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
 const LIFF_ID = '2008678090-TpSkCDSZ';
 
-/* ===== 星期幾格式化（台灣時區） ===== */
+/* ===== 格式化時間 ===== */
 function formatDateWithWeek(val){
   if(!val) return '';
   const d = new Date(val);
   if(isNaN(d.getTime())) return val;
-
   const local = new Date(d.getTime() + 8*60*60*1000);
   const weekMap = ['日','一','二','三','四','五','六'];
-
   const y = local.getFullYear();
   const m = String(local.getMonth()+1).padStart(2,'0');
   const day = String(local.getDate()).padStart(2,'0');
   const w = weekMap[local.getDay()];
-
   return `${y}/${m}/${day}（${w}）`;
 }
 
-function formatTimeWithWeek(val){
+function formatTailYearTime(val){
   if(!val) return '';
   const d = new Date(val);
   if(isNaN(d.getTime())) return val;
-
   const local = new Date(d.getTime() + 8*60*60*1000);
   const weekMap = ['日','一','二','三','四','五','六'];
-
+  const y = local.getFullYear();
+  const m = String(local.getMonth()+1).padStart(2,'0');
+  const day = String(local.getDate()).padStart(2,'0');
+  const w = weekMap[local.getDay()];
   const hh = String(local.getHours()).padStart(2,'0');
   const mm = String(local.getMinutes()).padStart(2,'0');
-  const w = weekMap[local.getDay()];
-
-  return `${hh}:${mm}（${w}）`;
+  return `${y}/${m}/${day}（${w}） ${hh}:${mm}`;
 }
 
 /* ===== LIFF ===== */
@@ -166,7 +162,7 @@ async function loadEvents(){
   });
 }
 
-/* ===== 載入選單 ===== */
+/* ===== 載入下拉選單 ===== */
 async function loadOptions(type,id){
   const res = await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
   const data = await res.json();
@@ -197,17 +193,14 @@ eventSelect.addEventListener('change',()=>{
   evAddress.innerText = opt.dataset.address || '';
 
   if(opt.dataset.type === '尾牙'){
-    evTime.innerText = formatTimeWithWeek(opt.dataset.time);
+    evTime.innerText = formatTailYearTime(opt.dataset.time);
   }else{
-    evTime.innerText =
-      formatDateWithWeek(opt.dataset.startDate) +
-      ' ～ ' +
-      formatDateWithWeek(opt.dataset.endDate);
+    evTime.innerText = formatDateWithWeek(opt.dataset.startDate) + ' ～ ' + formatDateWithWeek(opt.dataset.endDate);
   }
 
   mapBtn.onclick = ()=>{
     const addr = encodeURIComponent(opt.dataset.address || '');
-    window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`);
+    if(addr) window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`);
   };
 
   tableLabel.style.display = opt.dataset.type === '尾牙' ? 'block':'none';
@@ -221,8 +214,8 @@ sponsor.addEventListener('change',()=>{
   qtyLabel.style.display = sponsor.value === '無' ? 'none':'block';
 });
 
-/* ===== 送出 ===== */
-registrationForm.addEventListener('submit',async e=>{
+/* ===== 送出表單 ===== */
+registrationForm.addEventListener('submit', async e=>{
   e.preventDefault();
   const opt = eventSelect.selectedOptions[0];
 
@@ -255,8 +248,8 @@ registrationForm.addEventListener('submit',async e=>{
   result.innerText = r.message;
 });
 
-/* ===== Init ===== */
-window.addEventListener('DOMContentLoaded',async()=>{
+/* ===== 初始化 ===== */
+window.addEventListener('DOMContentLoaded', async ()=>{
   await initLiff();
   await loadEvents();
   loadOptions('people','people');

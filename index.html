@@ -23,11 +23,12 @@ button {
   background:#4CAF50; color:#fff;
 }
 button.cancel { background:#f44336; }
-#eventInfo {
+#eventInfo, #stats {
   margin-top:15px; padding:12px;
   background:#f9f9f9; border-radius:8px;
 }
 #eventInfo h3 { margin:0 0 8px 0; }
+#stats h3 { margin:0 0 8px 0; font-size:16px; }
 #result { margin-top:10px; color:#d32f2f; font-weight:bold; }
 </style>
 
@@ -103,7 +104,14 @@ button.cancel { background:#f44336; }
 </div>
 
 <p id="result"></p>
-</form>
+
+<!-- ===== 報名統計 ===== -->
+<div id="stats" style="display:none;">
+  <h3>活動報名統計</h3>
+  <div id="userStats"></div>
+  <div id="tableRoomStats"></div>
+  <div id="sponsorStats"></div>
+</div>
 
 </div>
 
@@ -111,7 +119,7 @@ button.cancel { background:#f44336; }
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
 const LIFF_ID = '2008678090-TpSkCDSZ';
 
-/* ===== 格式化時間 ===== */
+/* ===== 星期幾格式化 ===== */
 function formatDateWithWeek(val){
   if(!val) return '';
   const d = new Date(val);
@@ -125,19 +133,16 @@ function formatDateWithWeek(val){
   return `${y}/${m}/${day}（${w}）`;
 }
 
-function formatTailYearTime(val){
+function formatTimeWithWeek(val){
   if(!val) return '';
   const d = new Date(val);
   if(isNaN(d.getTime())) return val;
   const local = new Date(d.getTime() + 8*60*60*1000);
-  const weekMap = ['日','一','二','三','四','五','六'];
-  const y = local.getFullYear();
-  const m = String(local.getMonth()+1).padStart(2,'0');
-  const day = String(local.getDate()).padStart(2,'0');
-  const w = weekMap[local.getDay()];
   const hh = String(local.getHours()).padStart(2,'0');
   const mm = String(local.getMinutes()).padStart(2,'0');
-  return `${y}/${m}/${day}（${w}） ${hh}:${mm}`;
+  const weekMap = ['日','一','二','三','四','五','六'];
+  const w = weekMap[local.getDay()];
+  return `${hh}:${mm}（${w}）`;
 }
 
 /* ===== LIFF ===== */
@@ -162,7 +167,7 @@ async function loadEvents(){
   });
 }
 
-/* ===== 載入下拉選單 ===== */
+/* ===== 載入選單 ===== */
 async function loadOptions(type,id){
   const res = await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
   const data = await res.json();
@@ -175,25 +180,19 @@ async function loadOptions(type,id){
   });
 }
 
-/* ===== 取得使用者報名資料 ===== */
-async function loadUserData(eventId){
-  if(!eventId || !userId.value) return null;
-  const res = await fetch(`${GAS_URL}?action=query&eventId=${eventId}&userId=${userId.value}`);
-  const data = await res.json();
-  return data.found ? data : null;
-}
-
 /* ===== 活動切換 ===== */
-eventSelect.addEventListener('change', async ()=>{
+eventSelect.addEventListener('change',async ()=>{
   const opt = eventSelect.selectedOptions[0];
   if(!opt.value){
     formFields.style.display='none';
     eventInfo.style.display='none';
+    stats.style.display='none';
     return;
   }
 
   formFields.style.display='block';
   eventInfo.style.display='block';
+  stats.style.display='block';
 
   evTitle.innerText = opt.dataset.title || '';
   evHost.innerText = opt.dataset.host || '';
@@ -201,49 +200,33 @@ eventSelect.addEventListener('change', async ()=>{
   evAddress.innerText = opt.dataset.address || '';
 
   if(opt.dataset.type === '尾牙'){
-    evTime.innerText = formatTailYearTime(opt.dataset.time);
+    evTime.innerText = formatTimeWithWeek(opt.dataset.time);
   }else{
-    evTime.innerText = formatDateWithWeek(opt.dataset.startDate) + ' ～ ' + formatDateWithWeek(opt.dataset.endDate);
+    evTime.innerText = formatDateWithWeek(opt.dataset.startDate) +
+      ' ～ ' + formatDateWithWeek(opt.dataset.endDate);
   }
 
   mapBtn.onclick = ()=>{
     const addr = encodeURIComponent(opt.dataset.address || '');
-    if(addr) window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`);
   };
 
-  tableLabel.style.display = opt.dataset.type === '尾牙' ? 'block':'none';
-  pickupLabel.style.display = roomLabel.style.display =
-    opt.dataset.type === '旅遊' ? 'block':'none';
+  tableLabel.style.display = opt.dataset.type==='尾牙'?'block':'none';
+  pickupLabel.style.display = roomLabel.style.display = opt.dataset.type==='旅遊'?'block':'none';
 
-  // ===== 載入使用者資料 =====
-  const userData = await loadUserData(opt.value);
-  if(userData){
-    people.value = userData.people || '';
-    table.value = userData.table || '';
-    pickup.value = userData.pickup || '';
-    room.value = userData.room || '';
-    sponsor.value = userData.sponsor || '';
-    sponsorOther.value = userData.sponsorOther || '';
-    qty.value = userData.qty || '';
-    memo.value = userData.memo || '';
-    sponsorOtherLabel.style.display = sponsor.value === '其他' ? 'block':'none';
-    qtyLabel.style.display = sponsor.value === '無' ? 'none':'block';
-  } else {
-    clearForm();
-  }
+  loadStats(opt.value); // 即時統計
 });
 
 /* ===== 贊助切換 ===== */
 sponsor.addEventListener('change',()=>{
-  sponsorOtherLabel.style.display = sponsor.value === '其他' ? 'block':'none';
-  qtyLabel.style.display = sponsor.value === '無' ? 'none':'block';
+  sponsorOtherLabel.style.display = sponsor.value==='其他'?'block':'none';
+  qtyLabel.style.display = sponsor.value==='無'?'none':'block';
 });
 
-/* ===== 送出表單 ===== */
-registrationForm.addEventListener('submit', async e=>{
+/* ===== 送出報名 ===== */
+registrationForm.addEventListener('submit',async e=>{
   e.preventDefault();
   const opt = eventSelect.selectedOptions[0];
-
   const payload = {
     eventId: opt.value,
     eventType: opt.dataset.type,
@@ -259,60 +242,75 @@ registrationForm.addEventListener('submit', async e=>{
     memo: memo.value,
     action:'modify'
   };
-
   const res = await fetch(GAS_URL,{
     method:'POST',
     body: JSON.stringify({
-      events:[
-        { postback:{ data: JSON.stringify(payload) }},
-        { source:{ userId:userId.value }}
-      ]
+      events:[{ postback:{ data: JSON.stringify(payload) }},
+              { source:{ userId:userId.value }}]
     })
   });
   const r = await res.json();
   result.innerText = r.message;
+
+  // 送出後更新統計
+  loadStats(opt.value);
 });
 
 /* ===== 取消報名 ===== */
-cancelBtn.addEventListener('click', async ()=>{
+cancelBtn.addEventListener('click',async ()=>{
   const opt = eventSelect.selectedOptions[0];
   if(!opt.value) return alert('請先選擇活動');
-
-  const payload = {
-    eventId: opt.value,
-    userId: userId.value,
-    action: 'cancel'
-  };
-
+  const payload = {eventId:opt.value,userId:userId.value,action:'cancel'};
   const res = await fetch(GAS_URL,{
     method:'POST',
     body: JSON.stringify({
-      events:[
-        { postback:{ data: JSON.stringify(payload) }},
-        { source:{ userId:userId.value }}
-      ]
+      events:[{ postback:{ data: JSON.stringify(payload) }},
+              { source:{ userId:userId.value }}]
     })
   });
   const r = await res.json();
   result.innerText = r.message;
+  formFields.style.display='none';
+  stats.style.display='none';
 
-  // ===== 清空表單與活動資訊 =====
-  clearForm();
-  formFields.style.display = 'none';
-  eventInfo.style.display = 'none';
-  eventSelect.value = '';
+  loadStats(opt.value);
 });
 
-/* ===== 清空表單 ===== */
-function clearForm(){
-  people.value = table.value = pickup.value = room.value = '';
-  sponsor.value = sponsorOther.value = qty.value = memo.value = '';
-  sponsorOtherLabel.style.display = 'none';
-  qtyLabel.style.display = 'block';
+/* ===== 即時統計 ===== */
+async function loadStats(eventId){
+  const res = await fetch(`${GAS_URL}?action=queryStats&eventId=${eventId}`);
+  const data = await res.json();
+
+  // 使用者報名及人數
+  let userHtml='<b>使用者報名：</b><br>';
+  if(data.users && data.users.length>0){
+    data.users.forEach(u=>{
+      userHtml+=`${u.userName}：${u.people}人<br>`;
+    });
+  }else userHtml+='尚無報名<br>';
+  userStats.innerHTML=userHtml;
+
+  // 桌數 / 房型
+  let trHtml='<b>桌數 / 房型統計：</b><br>';
+  if(data.tableRoom && Object.keys(data.tableRoom).length>0){
+    for(const key in data.tableRoom){
+      trHtml+=`${key}：${data.tableRoom[key]}<br>`;
+    }
+  }else trHtml+='尚無資料<br>';
+  tableRoomStats.innerHTML=trHtml;
+
+  // 贊助統計
+  let sponsorHtml='<b>贊助統計：</b><br>';
+  if(data.sponsor && Object.keys(data.sponsor).length>0){
+    for(const key in data.sponsor){
+      sponsorHtml+=`${key}：${data.sponsor[key]}<br>`;
+    }
+  }else sponsorHtml+='尚無資料<br>';
+  sponsorStats.innerHTML=sponsorHtml;
 }
 
-/* ===== 初始化 ===== */
-window.addEventListener('DOMContentLoaded', async ()=>{
+/* ===== Init ===== */
+window.addEventListener('DOMContentLoaded',async()=>{
   await initLiff();
   await loadEvents();
   loadOptions('people','people');

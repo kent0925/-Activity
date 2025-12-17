@@ -22,6 +22,7 @@
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .qty-flex { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
   .custom-qty-grp { display: flex; gap: 5px; margin-top: 8px; }
+  .user-list-item { font-size: 13px; color: #666; padding-left: 10px; border-left: 2px solid #ddd; margin: 4px 0; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -62,7 +63,11 @@
     </div>
   </form>
 
-  <div id="stats"><div id="uStats"></div><div id="sStats" style="margin-top:10px;"></div></div>
+  <div id="stats">
+    <div id="uStats"></div>
+    <div id="uDetail" style="margin-bottom:15px;"></div>
+    <div id="sStats"></div>
+  </div>
 </div>
 
 <script>
@@ -271,10 +276,31 @@ $('regForm').onsubmit = async (e) => {
 
 async function loadStats(eventId) {
   const data = await callApi('queryStats', `&eventId=${eventId}`);
+  
+  // 總人數與明細
   let total = data.users?.reduce((s, u) => s + (parseInt(u.people)||0), 0) || 0;
   $('uStats').innerHTML = `<strong>👤 總報名：${total} 人</strong>`;
+  
+  let uDetailHtml = '';
+  if(data.users && data.users.length > 0) {
+    data.users.forEach(u => {
+      uDetailHtml += `<div class="user-list-item">${u.userName} (${u.people}人)</div>`;
+    });
+  }
+  $('uDetail').innerHTML = uDetailHtml;
+
+  // 贊助清單與贊助者姓名
   let sp = `<strong>🎁 贊助清單：</strong><br>`;
-  if(data.sponsor) Object.keys(data.sponsor).forEach(k => sp += `• ${k}: ${data.sponsor[k]}<br>`);
+  if(data.sponsorDetail && data.sponsorDetail.length > 0) {
+    // 假設後端傳回 sponsorDetail 為 [{item: "紅包(1000元)", user: "小明"}, ...]
+    data.sponsorDetail.forEach(s => {
+      sp += `• ${s.item} - <span style="color:#1a73e8;">${s.user}</span><br>`;
+    });
+  } else if(data.sponsor) {
+    // 備用方案：若後端僅傳回彙總物件，則顯示彙總結果
+    Object.keys(data.sponsor).forEach(k => sp += `• ${k}: ${data.sponsor[k]}<br>`);
+  }
+  
   $('sStats').innerHTML = sp; $('stats').style.display = 'block';
 }
 

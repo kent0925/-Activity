@@ -20,8 +20,6 @@
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
   #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
-
-  /* 贊助區塊樣式 */
   .sponsor-item { background: #fdfdfd; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 10px; position: relative; }
   .sponsor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
   .remove-btn { background: none; color: #ff4d4d; border: none; cursor: pointer; font-size: 18px; padding: 0 5px; }
@@ -101,6 +99,21 @@ async function callApi(action, extra = '') {
   return await r.json();
 }
 
+function fillBasicOptions(type) {
+  const people = $('people'), table = $('table'), pickup = $('pickup'), room = $('room');
+  people.innerHTML = '';
+  for(let i=1; i<=10; i++) people.add(new Option(`${i} 人`, i));
+  if (type === '尾牙') {
+    table.innerHTML = '';
+    ['無', '0.5 桌', '1 桌', '1.5 桌', '2 桌'].forEach(v => table.add(new Option(v, v)));
+  } else {
+    pickup.innerHTML = '';
+    ['公司', '交流道', '自行前往'].forEach(v => pickup.add(new Option(v, v)));
+    room.innerHTML = '';
+    ['雙人房', '四人房', '不留宿'].forEach(v => room.add(new Option(v, v)));
+  }
+}
+
 function createSponsorRow() {
   const container = $('sponsorContainer');
   const rowId = 'spRow_' + Date.now();
@@ -117,7 +130,7 @@ function createSponsorRow() {
     <div class="qtyGrp" style="display:none; margin-top:5px;">
       <select class="qtySelect" onchange="handleQtySelectChange('${rowId}')"></select>
       <div class="qtyCustomGrp qty-flex" style="display:none;">
-        <input type="number" class="qtyCustomNum" min="0" value="1">
+        <input type="number" class="qtyCustomNum" min="1" value="5">
         <select class="qtyCustomUnit"><option value="瓶">瓶</option><option value="箱">箱</option></select>
       </div>
       <div class="moneyGrp qty-flex" style="display:none;">
@@ -138,22 +151,16 @@ function removeRow(id) {
 function updateSponsorOptions() {
   const items = document.querySelectorAll('.sponsor-item');
   if (items.length === 0) return;
-  
   const backups = [];
   items.forEach(item => {
     backups.push({
-      id: item.id,
-      sel: item.querySelector('.sponsor-select').value,
-      other: item.querySelector('.spOtherInput').value,
-      qtySel: item.querySelector('.qtySelect').value,
-      cNum: item.querySelector('.qtyCustomNum').value,
-      cUnit: item.querySelector('.qtyCustomUnit').value,
+      id: item.id, sel: item.querySelector('.sponsor-select').value,
+      other: item.querySelector('.spOtherInput').value, qtySel: item.querySelector('.qtySelect').value,
+      cNum: item.querySelector('.qtyCustomNum').value, cUnit: item.querySelector('.qtyCustomUnit').value,
       money: item.querySelector('.moneyInput').value
     });
   });
-
   const selectedValues = backups.map(b => b.sel).filter(v => v !== "" && v !== "其他" && v !== "無");
-
   backups.forEach(b => {
     const row = $(b.id);
     const select = row.querySelector('.sponsor-select');
@@ -177,9 +184,7 @@ function handleSponsorChange(rowId, isSyncing = false) {
   const row = $(rowId), val = row.querySelector('.sponsor-select').value;
   const oGrp = row.querySelector('.spOtherGrp'), qGrp = row.querySelector('.qtyGrp'), 
         qSel = row.querySelector('.qtySelect'), qCustom = row.querySelector('.qtyCustomGrp'), mGrp = row.querySelector('.moneyGrp');
-  
   $('addSponsorBtn').style.display = (val === '無' || val === '') ? 'none' : 'block';
-
   if (val === '無' || val === '') {
     oGrp.style.display = qGrp.style.display = 'none';
   } else if (val === '其他') {
@@ -211,11 +216,13 @@ function handleQtySelectChange(rowId) {
 
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
-  $('subBtn').disabled = true;
   const sponsorList = [];
-  document.querySelectorAll('.sponsor-item').forEach(row => {
+  const items = document.querySelectorAll('.sponsor-item');
+  
+  for (let row of items) {
     const sel = row.querySelector('.sponsor-select').value;
-    if(!sel || sel === '無') return;
+    if(!sel || sel === '無') continue;
+    
     let name = sel, qty = "";
     if(sel === '其他') { 
       name = row.querySelector('.spOtherInput').value || '其他'; qty = "1"; 
@@ -224,19 +231,24 @@ $('regForm').onsubmit = async (e) => {
     } else {
       const qVal = row.querySelector('.qtySelect').value;
       if (qVal === '其他(自填數量)') {
-        qty = row.querySelector('.qtyCustomNum').value + row.querySelector('.qtyCustomUnit').value;
+        const cNum = parseInt(row.querySelector('.qtyCustomNum').value);
+        const cUnit = row.querySelector('.qtyCustomUnit').value;
+        // 驗證邏輯
+        if (cUnit === '瓶' && cNum < 5) { alert(`「${sel}」自填瓶數不得小於 5 瓶`); return; }
+        if (cUnit === '箱' && cNum < 2) { alert(`「${sel}」自填箱數不得小於 2 箱`); return; }
+        qty = cNum + cUnit;
       } else { qty = qVal; }
     }
     sponsorList.push(`${name}(${qty})`);
-  });
+  }
 
+  $('subBtn').disabled = true;
   const o = $('eventSelect').selectedOptions[0];
   const payload = {
     eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
     people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value,
     sponsor: sponsorList.join(', ') || '無', memo: $('memo').value
   };
-
   const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
   $('result').innerHTML = `<span style="color:blue;">${r.message}</span>`;
   loadStats(o.value);
@@ -248,20 +260,13 @@ async function init(){
   if(!liff.isLoggedIn()) liff.login();
   const p = await liff.getProfile();
   $('userName').value = p.displayName; $('userId').value = p.userId;
-  
-  // 1. 先抓取贊助選項與活動列表（確保 ✅ 的判斷能正常運作）
   const [spons, qtys, evs, myJoined] = await Promise.all([
-    callApi('getOptions', '&type=sponsor'),
-    callApi('getOptions', '&type=sponsorQty'),
-    callApi('getEvents'),
-    callApi('queryStats', '&all=true')
+    callApi('getOptions', '&type=sponsor'), callApi('getOptions', '&type=sponsorQty'),
+    callApi('getEvents'), callApi('queryStats', '&all=true')
   ]);
-
   masterOptions.sponsor = spons;
   masterOptions.sponsorQty = qtys;
   isInitialLoading = false;
-
-  // 2. 渲染活動選單，帶入 ✅
   $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
   evs.forEach(ev => {
     const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === $('userId').value);
@@ -274,6 +279,7 @@ async function init(){
 $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) return;
+  fillBasicOptions(o.dataset.type);
   $('eventInfo').style.display = $('regForm').style.display = $('stats').style.display = 'block';
   $('evTitle').innerText = o.dataset.title;
   $('evHost').innerText = o.dataset.host;
@@ -285,6 +291,11 @@ $('eventSelect').onchange = () => {
   $('sponsorContainer').innerHTML = '';
   createSponsorRow();
   loadStats(o.value);
+};
+
+$('mapBtn').onclick = () => {
+  const addr = $('evAddress').innerText;
+  if(addr) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
 };
 
 $('addSponsorBtn').onclick = createSponsorRow;
@@ -305,7 +316,7 @@ $('canBtn').onclick = async () => {
   const o = $('eventSelect').selectedOptions[0];
   const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({eventId:o.value, userId:$('userId').value}))}`);
   $('result').innerHTML = `<span style="color:red;">${r.message}</span>`;
-  init(); // 取消後重新整理選單
+  init();
 };
 </script>
 </body>

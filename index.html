@@ -5,122 +5,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>旅遊/尾牙報名系統（LIFF）</title>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  margin: 30px;
-  background-color: #f8f9fa;
-  color: #333;
-}
-h2 {
-  text-align: center;
-  color: #2c3e50;
-}
-form {
-  max-width: 500px;
-  margin: auto;
-  padding: 20px;
-  background-color: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-label {
-  display: block;
-  margin-top: 15px;
-  font-weight: bold;
-}
-select, input[type=text], textarea {
-  width: 100%;
-  margin-top: 5px;
-  padding: 8px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-  box-sizing: border-box;
-}
-button {
-  margin-top: 20px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  background-color: #3498db;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
-}
-button:hover {
-  background-color: #2980b9;
-}
-#result {
-  margin-top: 15px;
-  text-align: center;
-  font-weight: bold;
-  color: green;
-}
+body { font-family: Arial; margin: 20px; background: #f4f4f4; }
+.container { max-width: 500px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
+h2 { text-align: center; color: #333; }
+label { display: block; margin-top: 10px; color: #555; }
+select, input[type=text], textarea { width: 100%; padding: 7px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; }
+button { margin-top: 15px; padding: 10px; width: 48%; border:none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
+button.cancel { background: #f44336; }
+button:hover { opacity: 0.9; }
+#result { margin-top: 10px; color: #d32f2f; font-weight: bold; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
+<div class="container">
 <h2>旅遊/尾牙報名表單</h2>
 <form id="registrationForm">
-  <label>活動類型：
-    <select id="eventType" required>
-      <option value="">請選擇</option>
-      <option value="尾牙">尾牙</option>
-      <option value="旅遊">旅遊</option>
-    </select>
-  </label>
-  <label>活動ID：
-    <input type="text" id="eventId" required placeholder="例：E001">
-  </label>
-  <label>使用者名稱：
-    <input type="text" id="userName" readonly>
-  </label>
-  <label style="display:none;">User ID：
-    <input type="text" id="userId" readonly>
-  </label>
-  <button type="button" id="queryBtn">查詢報名</button>
+<label>選擇活動：
+  <select id="eventSelect" required>
+    <option value="">請選擇活動</option>
+  </select>
+</label>
+<label>使用者名稱：
+  <input type="text" id="userName" readonly>
+</label>
+<label style="display:none;">User ID：
+  <input type="text" id="userId" readonly>
+</label>
 
-  <div id="formFields" style="display:none;">
-    <label>參加人數：
-      <select id="people" required></select>
-    </label>
-    <label id="tableLabel">認桌數量（尾牙）：
-      <select id="table"></select>
-    </label>
-    <label id="pickupLabel">上車地點（旅遊）：
-      <select id="pickup"></select>
-    </label>
-    <label id="roomLabel">房型選擇（旅遊）：
-      <select id="room"></select>
-    </label>
-    <label>贊助項目：
-      <select id="sponsor" required></select>
-    </label>
-    <label id="sponsorOtherLabel" style="display:none;">其他贊助項目：
-      <input type="text" id="sponsorOther">
-    </label>
-    <label id="qtyLabel">贊助數量：
-      <select id="qty" required></select>
-    </label>
-    <label>備註：
-      <textarea id="memo"></textarea>
-    </label>
-    <button type="submit">送出 / 更新報名</button>
-    <button type="button" id="cancelBtn" style="background-color:#e74c3c;">取消報名</button>
-  </div>
-  <p id="result"></p>
+<div id="formFields" style="display:none;">
+<label>參加人數：
+  <select id="people" required></select>
+</label>
+<label id="tableLabel">認桌數量（尾牙）：
+  <select id="table"></select>
+</label>
+<label id="pickupLabel">上車地點（旅遊）：
+  <select id="pickup"></select>
+</label>
+<label id="roomLabel">房型選擇（旅遊）：
+  <select id="room"></select>
+</label>
+<label>贊助項目：
+  <select id="sponsor" required></select>
+</label>
+<label id="sponsorOtherLabel" style="display:none;">其他贊助項目：
+  <input type="text" id="sponsorOther">
+</label>
+<label id="qtyLabel">贊助數量：
+  <select id="qty" required></select>
+</label>
+<label>備註：
+  <textarea id="memo"></textarea>
+</label>
+<button type="submit">送出 / 更新報名</button>
+<button type="button" class="cancel" id="cancelBtn">取消報名</button>
+</div>
+<p id="result"></p>
 </form>
+</div>
 
 <script>
-const GAS_URL='https://script.google.com/macros/s/YOUR_GAS_DEPLOY_URL/exec';
-const LIFF_ID='YOUR_LIFF_ID';
-const eventTypeEl=document.getElementById('eventType');
-const tableLabel=document.getElementById('tableLabel');
-const pickupLabel=document.getElementById('pickupLabel');
-const roomLabel=document.getElementById('roomLabel');
-const sponsorEl=document.getElementById('sponsor');
-const sponsorOtherLabel=document.getElementById('sponsorOtherLabel');
-const qtyLabel=document.getElementById('qtyLabel');
-const formFields=document.getElementById('formFields');
+const GAS_URL='https://script.google.com/macros/s/AKfycbyJuAodySUQ0jUh0mNEvSv4D5J2Bi8GB7tp480BxHGyVOx-QeKiPJg7-KktBDtmKsf9/exec';
+const LIFF_ID='2008678090-TpSkCDSZ';
 
 async function initLiff(){
   await liff.init({liffId: LIFF_ID});
@@ -128,111 +75,105 @@ async function initLiff(){
     const profile = await liff.getProfile();
     document.getElementById('userName').value = profile.displayName;
     document.getElementById('userId').value = profile.userId;
-  }else{
-    liff.login();
-  }
+  }else liff.login();
 }
 
-// 切換尾牙 / 旅遊欄位
-eventTypeEl.addEventListener('change',()=>{
-  tableLabel.style.display = eventTypeEl.value==='尾牙' ? 'block':'none';
-  pickupLabel.style.display = eventTypeEl.value==='旅遊' ? 'block':'none';
-  roomLabel.style.display = eventTypeEl.value==='旅遊' ? 'block':'none';
-});
-
-// 贊助選項邏輯
-sponsorEl.addEventListener('change',()=>{
-  sponsorOtherLabel.style.display = sponsorEl.value==='其他' ? 'block':'none';
-  qtyLabel.style.display = (sponsorEl.value==='無' || sponsorEl.value==='') ? 'none':'block';
-  if(sponsorEl.value==='無' || sponsorEl.value==='') document.getElementById('qty').value='';
-});
-
-// 載入下拉選單
-async function loadOptions(type,selectId){
-  const res=await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
-  const data=await res.json();
-  const select=document.getElementById(selectId);
-  select.innerHTML='<option value="">請選擇</option>';
-  data.forEach(d=>{
-    const opt=document.createElement('option');
-    opt.value=d;
-    opt.text=d;
+// 載入活動
+async function loadEvents(){
+  const res = await fetch(`${GAS_URL}?action=getEvents`);
+  const data = await res.json();
+  const select = document.getElementById('eventSelect');
+  data.forEach(ev=>{
+    const opt = document.createElement('option');
+    opt.value = ev.eventId;
+    opt.dataset.type = ev.type;
+    opt.text = `${ev.title} (${ev.type})`;
     select.add(opt);
   });
 }
 
+// 載入下拉選單
+async function loadOptions(type,selectId){
+  const res = await fetch(`${GAS_URL}?action=getOptions&type=${type}`);
+  const data = await res.json();
+  const select = document.getElementById(selectId);
+  select.innerHTML = '';
+  data.forEach(d=>{
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.text = d;
+    select.add(opt);
+  });
+}
+
+// 切換欄位
+document.getElementById('eventSelect').addEventListener('change',()=>{
+  const selected = document.getElementById('eventSelect').selectedOptions[0];
+  if(!selected.value){ document.getElementById('formFields').style.display='none'; return; }
+  const type = selected.dataset.type;
+  document.getElementById('formFields').style.display='block';
+  document.getElementById('tableLabel').style.display = type==='尾牙'?'block':'none';
+  document.getElementById('pickupLabel').style.display = type==='旅遊'?'block':'none';
+  document.getElementById('roomLabel').style.display = type==='旅遊'?'block':'none';
+});
+
+// 贊助選擇
+document.getElementById('sponsor').addEventListener('change',()=>{
+  const val = document.getElementById('sponsor').value;
+  document.getElementById('sponsorOtherLabel').style.display = val==='其他'?'block':'none';
+  document.getElementById('qtyLabel').style.display = val==='無'||val===''?'none':'block';
+});
+
 window.addEventListener('DOMContentLoaded',async()=>{
   await initLiff();
+  await loadEvents();
   loadOptions('people','people');
   loadOptions('table','table');
-  loadOptions('sponsor','sponsor');
   loadOptions('pickup','pickup');
   loadOptions('room','room');
+  loadOptions('sponsor','sponsor');
   loadOptions('sponsorQty','qty');
 });
 
-// 查詢報名
-document.getElementById('queryBtn').addEventListener('click',async()=>{
-  const eventId=document.getElementById('eventId').value;
-  const userId=document.getElementById('userId').value;
-  const res=await fetch(`${GAS_URL}?action=query&eventId=${eventId}&userId=${userId}`);
-  const data=await res.json();
-  formFields.style.display='block';
-  if(data.found){
-    document.getElementById('people').value=data.people;
-    document.getElementById('table').value=data.table;
-    document.getElementById('pickup').value=data.pickup;
-    document.getElementById('room').value=data.room;
-    document.getElementById('sponsor').value=data.sponsor;
-    document.getElementById('sponsorOther').value=data.sponsorOther;
-    document.getElementById('qty').value=data.qty;
-    document.getElementById('memo').value=data.memo;
-    document.getElementById('result').innerText="已查詢到報名資料，可修改或取消";
-  }else{
-    document.getElementById('result').innerText="尚未報名，可填寫表單報名";
-  }
-});
-
-// 送出 / 修改報名
-document.getElementById('registrationForm').addEventListener('submit',async(e)=>{
+// 送出 / 修改
+document.getElementById('registrationForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  const data={
-    eventId:document.getElementById('eventId').value,
-    eventType:document.getElementById('eventType').value,
-    userId:document.getElementById('userId').value,
-    userName:document.getElementById('userName').value,
-    people:document.getElementById('people').value,
-    table:document.getElementById('table').value,
-    pickup:document.getElementById('pickup').value,
-    room:document.getElementById('room').value,
-    sponsor:document.getElementById('sponsor').value,
-    sponsorOther:document.getElementById('sponsorOther').value,
-    qty:document.getElementById('qty').value,
-    memo:document.getElementById('memo').value,
+  const eventSelect = document.getElementById('eventSelect').selectedOptions[0];
+  const data = {
+    eventId: eventSelect.value,
+    eventType: eventSelect.dataset.type,
+    userId: document.getElementById('userId').value,
+    userName: document.getElementById('userName').value,
+    people: document.getElementById('people').value,
+    table: document.getElementById('table').value,
+    pickup: document.getElementById('pickup').value,
+    room: document.getElementById('room').value,
+    sponsor: document.getElementById('sponsor').value,
+    sponsorOther: document.getElementById('sponsorOther').value,
+    qty: document.getElementById('qty').value,
+    memo: document.getElementById('memo').value,
     action:'modify'
   };
-  const res=await fetch(GAS_URL,{
+  const res = await fetch(GAS_URL,{
     method:'POST',
     body: JSON.stringify({events:[{postback:{data:JSON.stringify(data)}}, {source:{userId:data.userId}}]})
   });
-  const msg=await res.json();
-  document.getElementById('result').innerText=msg.message;
+  const result = await res.json();
+  document.getElementById('result').innerText = result.message;
 });
 
 // 取消報名
-document.getElementById('cancelBtn').addEventListener('click',async()=>{
-  const data={
-    eventId:document.getElementById('eventId').value,
-    userId:document.getElementById('userId').value,
-    action:'cancel'
-  };
-  const res=await fetch(GAS_URL,{
+document.getElementById('cancelBtn').addEventListener('click',async ()=>{
+  const eventSelect = document.getElementById('eventSelect').selectedOptions[0];
+  if(!eventSelect.value) return alert('請先選擇活動');
+  const data = { eventId: eventSelect.value, userId: document.getElementById('userId').value, action:'cancel' };
+  const res = await fetch(GAS_URL,{
     method:'POST',
     body: JSON.stringify({events:[{postback:{data:JSON.stringify(data)}}, {source:{userId:data.userId}}]})
   });
-  const msg=await res.json();
-  document.getElementById('result').innerText=msg.message;
-  formFields.style.display='none';
+  const result = await res.json();
+  document.getElementById('result').innerText = result.message;
+  document.getElementById('formFields').style.display='none';
 });
 </script>
 </body>

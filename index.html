@@ -83,6 +83,7 @@ const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 
 let masterOptions = { sponsor: [], sponsorQty: [] };
+let isInitialLoading = true;
 
 function formatDateTime(val, includeTime = false) {
   if (!val || val === '' || val === 'undefined') return '未定';
@@ -111,7 +112,7 @@ function createSponsorRow() {
       <span>贊助項目</span>
       <button type="button" class="remove-btn" onclick="removeRow('${rowId}')">🗑️</button>
     </div>
-    <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"></select>
+    <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"><option value="">載入中...</option></select>
     <div class="spOtherGrp" style="display:none; margin-top:5px;"><input type="text" class="spOtherInput" placeholder="輸入其他項目名稱"></div>
     <div class="qtyGrp" style="display:none; margin-top:5px;">
       <select class="qtySelect" onchange="handleQtySelectChange('${rowId}')"></select>
@@ -125,7 +126,7 @@ function createSponsorRow() {
     </div>
   `;
   container.appendChild(div);
-  updateSponsorOptions();
+  if (!isInitialLoading) updateSponsorOptions();
 }
 
 function removeRow(id) { 
@@ -136,8 +137,9 @@ function removeRow(id) {
 
 function updateSponsorOptions() {
   const items = document.querySelectorAll('.sponsor-item');
+  if (items.length === 0) return;
+  
   const backups = [];
-
   items.forEach(item => {
     backups.push({
       id: item.id,
@@ -160,21 +162,18 @@ function updateSponsorOptions() {
       if (selectedValues.includes(opt) && opt !== b.sel && opt !== "其他" && opt !== "無") return;
       select.add(new Option(opt, opt));
     });
-    
     select.value = b.sel;
-    handleSponsorChange(b.id);
-
+    handleSponsorChange(b.id, true);
     row.querySelector('.spOtherInput').value = b.other;
     row.querySelector('.qtySelect').value = b.qtySel;
     row.querySelector('.qtyCustomNum').value = b.cNum;
     row.querySelector('.qtyCustomUnit').value = b.cUnit;
     row.querySelector('.moneyInput').value = b.money;
-    
     handleQtySelectChange(b.id);
   });
 }
 
-function handleSponsorChange(rowId) {
+function handleSponsorChange(rowId, isSyncing = false) {
   const row = $(rowId), val = row.querySelector('.sponsor-select').value;
   const oGrp = row.querySelector('.spOtherGrp'), qGrp = row.querySelector('.qtyGrp'), 
         qSel = row.querySelector('.qtySelect'), qCustom = row.querySelector('.qtyCustomGrp'), mGrp = row.querySelector('.moneyGrp');
@@ -194,7 +193,6 @@ function handleSponsorChange(rowId) {
       const currentQty = qSel.value;
       qSel.innerHTML = '';
       if (val.includes('酒')) {
-        // --- 修正處：瓶數到 5，1箱(6瓶) ---
         ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱','其他(自填數量)'].forEach(t => qSel.add(new Option(t, t)));
       } else {
         masterOptions.sponsorQty.forEach(q => qSel.add(new Option(q, q)));
@@ -203,6 +201,7 @@ function handleSponsorChange(rowId) {
       handleQtySelectChange(rowId);
     }
   }
+  if (!isSyncing) updateSponsorOptions();
 }
 
 function handleQtySelectChange(rowId) {
@@ -249,11 +248,20 @@ async function init(){
   if(!liff.isLoggedIn()) liff.login();
   const p = await liff.getProfile();
   $('userName').value = p.displayName; $('userId').value = p.userId;
-  loadEvents();
-}
+  
+  // 1. 先抓取贊助選項與活動列表（確保 ✅ 的判斷能正常運作）
+  const [spons, qtys, evs, myJoined] = await Promise.all([
+    callApi('getOptions', '&type=sponsor'),
+    callApi('getOptions', '&type=sponsorQty'),
+    callApi('getEvents'),
+    callApi('queryStats', '&all=true')
+  ]);
 
-async function loadEvents(){
-  const [evs, myJoined] = await Promise.all([callApi('getEvents'), callApi('queryStats', '&all=true')]);
+  masterOptions.sponsor = spons;
+  masterOptions.sponsorQty = qtys;
+  isInitialLoading = false;
+
+  // 2. 渲染活動選單，帶入 ✅
   $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
   evs.forEach(ev => {
     const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === $('userId').value);
@@ -290,18 +298,14 @@ async function loadStats(eventId) {
   $('sStats').innerHTML = sp;
 }
 
-window.onload = async () => {
-  init();
-  masterOptions.sponsor = await callApi('getOptions', '&type=sponsor');
-  masterOptions.sponsorQty = await callApi('getOptions', '&type=sponsorQty');
-};
+window.onload = init;
 
 $('canBtn').onclick = async () => {
   if(!confirm('取消報名？')) return;
   const o = $('eventSelect').selectedOptions[0];
   const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({eventId:o.value, userId:$('userId').value}))}`);
   $('result').innerHTML = `<span style="color:red;">${r.message}</span>`;
-  loadEvents(); loadStats(o.value);
+  init(); // 取消後重新整理選單
 };
 </script>
 </body>

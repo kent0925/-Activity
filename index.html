@@ -19,7 +19,6 @@
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
-  /* 地圖按鈕樣式 - 強制顯示 */
   #mapBtn { width: 100%; background: #4285F4 !important; margin-top:12px; display: block !important; color: white; }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -60,7 +59,10 @@
       <label>贊助項目名稱：<input type="text" id="spOther" placeholder="請輸入項目名稱"></label>
     </div>
     
-    <label id="qtyLbl">贊助數量：<select id="qty"></select></label>
+    <div id="qtyGrp" style="display:none;">
+      <label id="qtyLbl">贊助數量：<select id="qty"></select></label>
+    </div>
+
     <label>備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
 
     <div class="btn-group">
@@ -84,25 +86,27 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 
-// 💡 強化日期處理函式：日期 + (星期幾) + 選擇性時間
+// 💡 強化日期時間處理
 function formatDateTime(val, includeTime = false) {
   if (!val || val === 'undefined' || val === 'null' || val === '') return '未定';
   
-  let dateStr = String(val).split('T')[0];
-  let d = new Date(dateStr);
+  let s = String(val);
+  let datePart = s.split('T')[0];
+  let d = new Date(datePart);
   
-  if (isNaN(d.getTime())) return dateStr;
+  if (isNaN(d.getTime())) return s;
 
   const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
   let dayName = weekDays[d.getDay()];
-  let result = `${dateStr} (${dayName})`;
+  let result = `${datePart} (${dayName})`;
 
-  // 尾牙需要顯示時間
-  if (includeTime && String(val).includes('T')) {
-    let timePart = String(val).split('T')[1].substring(0, 5); 
-    // 排除常見的時區自動偏移造成的 00:00 或 16:00
-    if (timePart !== "00:00" && timePart !== "16:00") {
-        result += ` ${timePart}`;
+  // 💡 修正尾牙時間抓取邏輯
+  if (includeTime && s.includes('T')) {
+    let timeMatch = s.match(/T(\d{2}:\d{2})/);
+    if (timeMatch && timeMatch[1]) {
+        let time = timeMatch[1];
+        // 只有當時間不是剛好 00:00 (通常是純日期轉換造成的) 才顯示
+        if (time !== "00:00") result += ` ${time}`;
     }
   }
   return result;
@@ -137,7 +141,6 @@ async function loadEvents(){
       const opt = document.createElement('option');
       opt.value = ev.eventId;
       opt.text = `${ev.title} (${ev.type})${isJoined ? ' 【 ✅ 已報名 】' : ''}`;
-      // 存入所有欄位到 Dataset
       Object.keys(ev).forEach(k => opt.dataset[k] = ev[k] || '');
       $('eventSelect').add(opt);
     });
@@ -157,25 +160,20 @@ $('eventSelect').onchange = () => {
   $('evStore').innerText = o.dataset.store || '無';
   $('evAddress').innerText = o.dataset.address || '無';
   
-  // 💡 處理時間顯示邏輯
   if (isW) {
-    // 尾牙：日期(星期) + 時間
+    // 💡 抓取尾牙時間欄位 (Sheet 中的 Time 欄位)
     $('evTime').innerText = formatDateTime(o.dataset.time, true);
   } else {
-    // 旅遊：起日(星期) ~ 止日(星期)
     const start = formatDateTime(o.dataset.startDate);
     const end = formatDateTime(o.dataset.endDate);
     $('evTime').innerText = `${start} ~ ${end}`;
   }
   
-  // 💡 地圖按鈕綁定
   $('mapBtn').onclick = () => {
     const addr = o.dataset.address;
     if(addr && addr !== '無' && addr !== '') {
       window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr), "_blank");
-    } else { 
-      alert('此活動未提供有效地址'); 
-    }
+    } else { alert('此活動未提供有效地址'); }
   };
 
   $('weiyaFields').style.display = isW ? 'block' : 'none';
@@ -223,7 +221,7 @@ $('regForm').onsubmit = async (e) => {
   const payload = {
     eventId: o.value, eventType: o.dataset.type, userId: $('userId').value, userName: $('userName').value,
     people: $('people').value, table: $('table').value, pickup: $('pickup').value, room: $('room').value,
-    sponsor: $('sponsor').value, sponsorOther: $('spOther').value, qty: $('qtyLbl').style.display==='none'?'0':$('qty').value, memo: $('memo').value
+    sponsor: $('sponsor').value, sponsorOther: $('spOther').value, qty: $('qtyGrp').style.display==='none'?'0':$('qty').value, memo: $('memo').value
   };
   try {
     const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
@@ -247,9 +245,12 @@ $('canBtn').onclick = async () => {
   finally { $('canBtn').disabled = false; }
 };
 
+// 💡 修正贊助顯示邏輯
 $('sponsor').onchange = () => {
-  $('spOtherGrp').style.display = $('sponsor').value === '其他' ? 'block' : 'none';
-  $('qtyLbl').style.display = $('sponsor').value === '無' ? 'none' : 'block';
+  const val = $('sponsor').value;
+  $('spOtherGrp').style.display = val === '其他' ? 'block' : 'none';
+  // 只有在不是「無」的時候才顯示數量
+  $('qtyGrp').style.display = (val === '無' || val === '') ? 'none' : 'block';
 };
 
 window.onload = () => {
@@ -264,6 +265,8 @@ window.onload = () => {
       const d = await callApi('getOptions', `&type=${cfg.type}`);
       const el = $(cfg.id); el.innerHTML = '';
       d.forEach(v => el.add(new Option(v, v)));
+      // 初始化贊助顯示狀態
+      if(cfg.type === 'sponsor') $('sponsor').onchange();
     } catch(e) {}
   });
 };

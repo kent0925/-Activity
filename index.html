@@ -19,8 +19,15 @@
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   #result { margin-top:15px; text-align: center; font-weight:bold; min-height: 24px; }
   .stat-item { margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; font-size: 14px; line-height: 1.6; }
-  /* 地圖按鈕樣式 */
-  #mapBtn { width: 100%; background: #4285F4; margin-top:10px; display: block !important; }
+  
+  /* 💡 強制確保地圖按鈕顯示與配色 */
+  #mapBtn { 
+    width: 100%; 
+    background: #4285F4 !important; 
+    margin-top:12px; 
+    display: block !important; 
+    color: white;
+  }
 </style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -124,7 +131,6 @@ async function loadEvents(){
   } catch(e) { $('eventSelect').innerHTML = '<option value="">活動載入失敗</option>'; }
 }
 
-// 選擇活動切換
 $('eventSelect').onchange = () => {
   const o = $('eventSelect').selectedOptions[0];
   if(!o || !o.value) { 
@@ -144,12 +150,11 @@ $('eventSelect').onchange = () => {
     $('evTime').innerText = `${formatIsoDate(o.dataset.startDate)} ~ ${formatIsoDate(o.dataset.endDate)}`;
   }
   
-  // 💡 修復後的地圖跳轉代碼
-  $('mapBtn').onclick = function() {
+  // 💡 修正後的 Google 地圖導航網址
+  $('mapBtn').onclick = () => {
     const addr = o.dataset.address;
     if(addr && addr !== '無') {
-      const mapUrl = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
-      window.open(mapUrl, '_blank');
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
     } else { 
       alert('此活動未提供有效地址'); 
     }

@@ -76,9 +76,16 @@ const $ = id => document.getElementById(id);
 
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [] };
 
-// 修正：僅保留日期格式 (YYYY/MM/DD)
+// 輔助：取得星期幾
+function getDayOfWeek(dateStr) {
+  const days = ['日', '一', '二', '三', '四', '五', '六'];
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? '' : `(${days[d.getDay()]})`;
+}
+
+// 格式化日期 (YYYY/MM/DD)
 function formatOnlyDate(val) {
-  if (!val || val === 'undefined' || val === '') return '未定';
+  if (!val || val === 'undefined' || val === '') return '';
   const d = new Date(val);
   if (isNaN(d.getTime())) return val;
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
@@ -109,8 +116,11 @@ async function init(){
     
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
     evs.forEach(ev => {
+      // 檢查是否已報名
       const isJoined = myJoined.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
-      const opt = new Option(`${ev.title} (${ev.type})${isJoined ? ' ✅' : ''}`, ev.eventId);
+      const statusTag = isJoined ? ' (已報名)' : '';
+      
+      const opt = new Option(`${ev.title} (${ev.type})${statusTag}`, ev.eventId);
       Object.keys(ev).forEach(k => opt.dataset[k.toLowerCase()] = ev[k] || '');
       $('eventSelect').add(opt);
     });
@@ -155,7 +165,6 @@ function handleSponsorChange(rowId) {
   const qGrp = row.querySelector('.qtyGrp'), qSel = row.querySelector('.qtySelect'), 
         mGrp = row.querySelector('.moneyGrp'), cGrp = row.querySelector('.customQtyGrp');
   
-  // 修正：如果選擇「無」，隱藏數量區，且不顯示新增按鈕
   if(!val || val.includes('--') || val === '無') { 
     qGrp.style.display = 'none'; 
   } else {
@@ -178,7 +187,6 @@ function handleSponsorChange(rowId) {
 function checkSponsorAddButton() {
   const items = document.querySelectorAll('.sponsor-item');
   const lastVal = items[items.length - 1]?.querySelector('.sponsor-select').value;
-  // 只有當最後一項不是「無」也不是「未選擇」時，才顯示新增按鈕
   $('addSponsorBtn').style.display = (lastVal && lastVal !== '無' && !lastVal.includes('--')) ? 'block' : 'none';
 }
 
@@ -192,20 +200,31 @@ $('eventSelect').onchange = () => {
   if(!o || !o.value) return;
 
   const type = o.dataset.type;
-  document.getElementById('people').innerHTML = '';
+  $('people').innerHTML = '';
   masterOptions.people.forEach(p => $('people').add(new Option(p, p)));
 
   if (type === '尾牙') {
-    $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
-    document.getElementById('table').innerHTML = '';
+    $('weiyaFields').style.display = 'block'; 
+    $('travelFields').style.display = 'none';
+    $('table').innerHTML = '';
     masterOptions.table.forEach(t => $('table').add(new Option(t, t)));
-    $('evTime').innerText = formatOnlyDate(o.dataset.time);
+    
+    // 尾牙格式：日期 + (星期) + 時間
+    const datePart = formatOnlyDate(o.dataset.time);
+    const dayPart = getDayOfWeek(o.dataset.time);
+    const fullTime = o.dataset.time || '';
+    const timePart = fullTime.includes(' ') ? fullTime.split(' ')[1] : ''; 
+    $('evTime').innerText = `${datePart} ${dayPart} ${timePart}`.trim();
+    
   } else {
-    $('weiyaFields').style.display = 'none'; $('travelFields').style.display = 'block';
-    document.getElementById('pickup').innerHTML = '';
-    document.getElementById('room').innerHTML = '';
+    $('weiyaFields').style.display = 'none'; 
+    $('travelFields').style.display = 'block';
+    $('pickup').innerHTML = '';
+    $('room').innerHTML = '';
     masterOptions.pickup.forEach(p => $('pickup').add(new Option(p, p)));
     masterOptions.room.forEach(r => $('room').add(new Option(r, r)));
+    
+    // 旅遊格式：日期 ~ 日期
     $('evTime').innerText = `${formatOnlyDate(o.dataset.startdate)} ~ ${formatOnlyDate(o.dataset.enddate)}`;
   }
 
@@ -256,7 +275,11 @@ async function loadStats(eventId) {
 
 $('mapBtn').onclick = () => {
   const addr = $('evAddress').innerText;
-  if(addr) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
+  const store = $('evStore').innerText;
+  if(addr) {
+    const query = encodeURIComponent(`${store} ${addr}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+  }
 };
 
 window.onload = init;

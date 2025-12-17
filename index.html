@@ -175,8 +175,16 @@ async function loadOptions(type,id){
   });
 }
 
+/* ===== 取得使用者報名資料 ===== */
+async function loadUserData(eventId){
+  if(!eventId || !userId.value) return null;
+  const res = await fetch(`${GAS_URL}?action=query&eventId=${eventId}&userId=${userId.value}`);
+  const data = await res.json();
+  return data.found ? data : null;
+}
+
 /* ===== 活動切換 ===== */
-eventSelect.addEventListener('change',()=>{
+eventSelect.addEventListener('change', async ()=>{
   const opt = eventSelect.selectedOptions[0];
   if(!opt.value){
     formFields.style.display='none';
@@ -206,6 +214,23 @@ eventSelect.addEventListener('change',()=>{
   tableLabel.style.display = opt.dataset.type === '尾牙' ? 'block':'none';
   pickupLabel.style.display = roomLabel.style.display =
     opt.dataset.type === '旅遊' ? 'block':'none';
+
+  // ===== 載入使用者資料 =====
+  const userData = await loadUserData(opt.value);
+  if(userData){
+    people.value = userData.people || '';
+    table.value = userData.table || '';
+    pickup.value = userData.pickup || '';
+    room.value = userData.room || '';
+    sponsor.value = userData.sponsor || '';
+    sponsorOther.value = userData.sponsorOther || '';
+    qty.value = userData.qty || '';
+    memo.value = userData.memo || '';
+    sponsorOtherLabel.style.display = sponsor.value === '其他' ? 'block':'none';
+    qtyLabel.style.display = sponsor.value === '無' ? 'none':'block';
+  } else {
+    clearForm();
+  }
 });
 
 /* ===== 贊助切換 ===== */
@@ -247,6 +272,44 @@ registrationForm.addEventListener('submit', async e=>{
   const r = await res.json();
   result.innerText = r.message;
 });
+
+/* ===== 取消報名 ===== */
+cancelBtn.addEventListener('click', async ()=>{
+  const opt = eventSelect.selectedOptions[0];
+  if(!opt.value) return alert('請先選擇活動');
+
+  const payload = {
+    eventId: opt.value,
+    userId: userId.value,
+    action: 'cancel'
+  };
+
+  const res = await fetch(GAS_URL,{
+    method:'POST',
+    body: JSON.stringify({
+      events:[
+        { postback:{ data: JSON.stringify(payload) }},
+        { source:{ userId:userId.value }}
+      ]
+    })
+  });
+  const r = await res.json();
+  result.innerText = r.message;
+
+  // ===== 清空表單與活動資訊 =====
+  clearForm();
+  formFields.style.display = 'none';
+  eventInfo.style.display = 'none';
+  eventSelect.value = '';
+});
+
+/* ===== 清空表單 ===== */
+function clearForm(){
+  people.value = table.value = pickup.value = room.value = '';
+  sponsor.value = sponsorOther.value = qty.value = memo.value = '';
+  sponsorOtherLabel.style.display = 'none';
+  qtyLabel.style.display = 'block';
+}
 
 /* ===== 初始化 ===== */
 window.addEventListener('DOMContentLoaded', async ()=>{

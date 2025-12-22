@@ -19,6 +19,15 @@
   #eventInfo, #stats { margin-top:15px; padding:15px; border-radius:8px; display:none; }
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
+  
+  /* 行程表收縮樣式 */
+  .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
+  .itinerary-header { background: #1a73e8; color: white; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
+  .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 250px; overflow-y: auto; }
+  .itinerary-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+  .itinerary-table th, .itinerary-table td { border-bottom: 1px solid #eee; padding: 8px 4px; text-align: left; }
+  .itinerary-table th { color: #1a73e8; font-size: 12px; }
+
   .sponsor-item { background: #fdfdfd; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
   .sponsor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .remove-btn { background: none; color: #ff4d4d; border: none; cursor: pointer; font-size: 18px; font-weight: bold; width: auto; padding: 0; }
@@ -40,6 +49,28 @@
     <p>📅 時間：<span id="evTime"></span></p>
     <p>📍 地點：<span id="evStore"></span></p>
     <p>🏠 地址：<span id="evAddress"></span></p>
+    
+    <div id="itineraryBox" class="itinerary-container" style="display:none;">
+      <div class="itinerary-header" onclick="toggleItinerary()">
+        <span>🗺️ 查看活動行程表</span>
+        <span id="arrow">▼</span>
+      </div>
+      <div id="itineraryContent" class="itinerary-content">
+        <table class="itinerary-table">
+          <thead>
+            <tr>
+              <th>出發時間</th>
+              <th>地點</th>
+              <th>抵達時間</th>
+              <th>地點</th>
+            </tr>
+          </thead>
+          <tbody id="itineraryBody">
+            </tbody>
+        </table>
+      </div>
+    </div>
+
     <button type="button" id="mapBtn" style="width:100%; background:#4285F4; color:white; border:none; padding:8px; border-radius:5px; margin-top:10px; cursor:pointer;">📍 開啟 Google 地圖</button>
   </div>
 
@@ -74,7 +105,7 @@
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5WcpVqT54uZhWwF3P8InjwQJor_TqFQsOeaRLn_lQOvwKU/exec';
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
-let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [] };
+let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
 
 function getDayOfWeek(dateStr) {
   const days = ['日', '一', '二', '三', '四', '五', '六'];
@@ -86,6 +117,19 @@ function formatOnlyDate(val) {
   if (!val || val === 'undefined' || val === '') return '';
   const d = new Date(val);
   return isNaN(d.getTime()) ? val : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 切換行程表收縮
+function toggleItinerary() {
+  const content = $('itineraryContent');
+  const arrow = $('arrow');
+  if (content.style.display === 'block') {
+    content.style.display = 'none';
+    arrow.innerText = '▼';
+  } else {
+    content.style.display = 'block';
+    arrow.innerText = '▲';
+  }
 }
 
 async function callApi(action, extra = '') {
@@ -102,17 +146,20 @@ async function init(){
     const p = await liff.getProfile();
     $('userName').value = p.displayName; 
     $('userId').value = p.userId;
-    const keys = ['sponsor','sponsorQty','people','table','pickup','room'];
+    
+    // 修改 keys，增加抓取 itinerary
+    const keys = ['sponsor','sponsorQty','people','table','pickup','room', 'itinerary'];
     const res = await Promise.all([
       ...keys.map(k => callApi('getOptions', `&type=${k}`)), 
       callApi('getEvents'), 
       callApi('queryStats', '&all=true')
     ]);
+    
     keys.forEach((k, i) => masterOptions[k] = res[i]);
+
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
-    res[6].forEach(ev => {
-      const joined = res[7].some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
-      // 修正點：將標籤移至左側並加上括號
+    res[7].forEach(ev => {
+      const joined = res[8].some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
       const prefix = joined ? '【✅ 已報名】 ' : '';
       const opt = new Option(`${prefix}${ev.title} (${ev.type})`, ev.eventId);
       opt.dataset.joined = joined;
@@ -121,6 +168,70 @@ async function init(){
     });
   } catch (err) { console.error(err); }
 }
+
+$('eventSelect').onchange = () => {
+  const o = $('eventSelect').selectedOptions[0];
+  if(!o || !o.value) return;
+  const d = o.dataset, isW = d.type === '尾牙';
+  const joined = d.joined === 'true';
+  
+  // 更新介面
+  $('subBtn').innerText = joined ? '編輯報名' : '送出報名';
+  $('cancelBtn').style.display = joined ? 'block' : 'none';
+  const fill = (id, list) => { $(id).innerHTML = ''; list.forEach(x => $(id).add(new Option(x, x))); };
+  fill('people', masterOptions.people);
+
+  if (isW) {
+    $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
+    $('itineraryBox').style.display = 'none'; // 尾牙隱藏行程表
+    fill('table', masterOptions.table);
+    const rawTime = d.time || '';
+    const dt = new Date(rawTime);
+    $('evTime').innerText = `${formatOnlyDate(rawTime)} ${getDayOfWeek(rawTime)} ${isNaN(dt.getHours()) ? "" : String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}`.trim();
+  } else {
+    $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
+    fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
+    $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
+    
+    // 【填入行程表資料】
+    renderItinerary(o.value);
+  }
+
+  $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
+  $('evStore').innerText = d.store; $('evAddress').innerText = d.address;
+  $('regForm').style.display = $('eventInfo').style.display = 'block';
+  $('sponsorContainer').innerHTML = ''; createSponsorRow(); 
+  loadStats(o.value);
+};
+
+// 渲染行程表
+function renderItinerary(eventId) {
+  const tbody = $('itineraryBody');
+  tbody.innerHTML = '';
+  
+  // 過濾出屬於該活動的行程 (假設 Sheet 回傳的行程對象有 eventId 欄位)
+  // 如果 Options 工作表不分活動，則全部顯示
+  const list = masterOptions.itinerary;
+  
+  if (list && list.length > 0) {
+    list.forEach(item => {
+      // 這裡對應您 Sheet 的欄位標頭
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.startTime || '-'}</td>
+        <td>${item.startLoc || '-'}</td>
+        <td>${item.endTime || '-'}</td>
+        <td>${item.endLoc || '-'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    $('itineraryBox').style.display = 'block';
+  } else {
+    $('itineraryBox').style.display = 'none';
+  }
+}
+
+/* 剩下的 JS 邏輯（Sponsor, Submit, loadStats 等）保持原樣... */
 
 $('addSponsorBtn').onclick = createSponsorRow;
 
@@ -193,33 +304,6 @@ function checkSponsorAddButton() {
   const normalLeft = masterOptions.sponsor.filter(s => s !== "無" && s !== "其他" && !current.includes(s)).length > 0;
   $('addSponsorBtn').style.display = (lastVal && lastVal !== '無' && (normalLeft || otherCount < 5)) ? 'block' : 'none';
 }
-
-$('eventSelect').onchange = () => {
-  const o = $('eventSelect').selectedOptions[0];
-  if(!o || !o.value) return;
-  const d = o.dataset, isW = d.type === '尾牙';
-  const joined = d.joined === 'true';
-  $('subBtn').innerText = joined ? '編輯報名' : '送出報名';
-  $('cancelBtn').style.display = joined ? 'block' : 'none';
-  const fill = (id, list) => { $(id).innerHTML = ''; list.forEach(x => $(id).add(new Option(x, x))); };
-  fill('people', masterOptions.people);
-  if (isW) {
-    $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
-    fill('table', masterOptions.table);
-    const rawTime = d.time || '';
-    const dt = new Date(rawTime);
-    $('evTime').innerText = `${formatOnlyDate(rawTime)} ${getDayOfWeek(rawTime)} ${isNaN(dt.getHours()) ? "" : String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}`.trim();
-  } else {
-    $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
-    fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
-    $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
-  }
-  $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
-  $('evStore').innerText = d.store; $('evAddress').innerText = d.address;
-  $('regForm').style.display = $('eventInfo').style.display = 'block';
-  $('sponsorContainer').innerHTML = ''; createSponsorRow(); 
-  loadStats(o.value);
-};
 
 $('cancelBtn').onclick = async () => {
   if (!confirm("確定要取消報名嗎？這將會徹底移除您的報名與贊助資料。")) return;
@@ -299,7 +383,6 @@ async function loadStats(eventId) {
 $('mapBtn').onclick = () => {
   const o = $('eventSelect').selectedOptions[0].dataset;
   const query = encodeURIComponent(`${o.store} ${o.address}`);
-  // 修正點：移除多餘的字元並修正 URL 格式
   window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
 };
 

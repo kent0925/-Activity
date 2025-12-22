@@ -21,10 +21,11 @@
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   
-  /* --- 地址：完全純文字樣式 --- */
+  /* --- 地址：文字純化但保留 ICON 觸發功能 --- */
   .address-wrapper { display: flex; align-items: flex-start; margin-top: 10px; line-height: 1.5; }
   .address-label { font-weight:bold; flex-shrink:0; }
-  .address-link { display: inline; cursor: pointer; color: #333; text-decoration: none; }
+  .address-link { display: inline-flex; align-items: center; cursor: pointer; color: #333; text-decoration: none; }
+  .gm-icon { width: 18px; height: 18px; margin-left: 6px; flex-shrink: 0; fill: #EA4335; opacity: 0.8; }
 
   /* --- 行程表與名單視覺優化 --- */
   .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
@@ -66,6 +67,9 @@
       <span class="address-label">🏠 地址：</span>
       <div class="address-link" onclick="openGoogleMap()">
         <span id="evAddress"></span>
+        <svg class="gm-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/>
+        </svg>
       </div>
     </div>
     

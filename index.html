@@ -20,6 +20,7 @@
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   
+  /* 行程表收縮總容器 */
   .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
   .itinerary-header { background: #1a73e8; color: white; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
   .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 500px; overflow-y: auto; background: #fcfdfe; }
@@ -76,11 +77,11 @@
     <div id="weiyaFields" style="display:none;"><label>認桌數量：<select id="table"></select></label></div>
     
     <div id="travelFields" style="display:none;">
-      <label>上車地點：</label>
+      <label><span style="color:red;">*</span> 上車地點：</label>
       <select id="pickup" onchange="updatePickupMap()"></select>
       <div id="pickupMapLink" class="map-link-btn" style="display:none;" onclick="openPickupMap()">📍 查看 [ <span id="locLabel"></span> ] 上車位置</div>
       
-      <label>房型選擇 (房型/價格/剩餘間數)：</label>
+      <label><span style="color:red;">*</span> 房型選擇 (含價格及剩餘間數)：</label>
       <select id="room"></select>
     </div>
 
@@ -207,6 +208,7 @@ $('eventSelect').onchange = async () => {
   } else {
     $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
     
+    // 填充上車點
     const pSel = $('pickup'); pSel.innerHTML = '<option value="">-- 請選擇上車點 --</option>';
     masterOptions.pickup.forEach(item => {
       const opt = new Option(item.name, item.name);
@@ -214,8 +216,11 @@ $('eventSelect').onchange = async () => {
       pSel.add(opt);
     });
 
-    // 合併房型選擇邏輯：將 房型/價格/剩餘間數 併入選單文字
+    // 填充房型
     const rSel = $('room'); rSel.innerHTML = '<option value="">-- 請選擇房型 --</option>';
+    // 固定新增「併房」選項
+    rSel.add(new Option("我要併房 (由主辦單位安排)", "我要併房"));
+    
     masterOptions.room.forEach(item => {
       const used = users.reduce((acc, u) => {
         if (u.room && u.room.startsWith(item.name)) {
@@ -225,8 +230,7 @@ $('eventSelect').onchange = async () => {
         return acc;
       }, 0);
       const remain = (parseInt(item.totalCount) || 0) - used;
-      
-      const displayText = `${item.name} / ${item.price}元 / 剩 ${remain} 間`;
+      const displayText = `${item.name} / ${item.price}元 / 剩${remain}間`;
       const opt = new Option(displayText, item.name);
       opt.dataset.stock = remain;
       if (remain <= 0) { opt.disabled = true; opt.text = `${item.name} (已售完)`; }
@@ -373,8 +377,18 @@ function checkSponsorAddButton() {
   $('addSponsorBtn').style.display = (lastVal && lastVal !== '無' && (normalLeft || otherCount < 5)) ? 'block' : 'none';
 }
 
+// 送出報名
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
+  
+  const o = $('eventSelect').selectedOptions[0].dataset;
+
+  // 旅遊活動必填檢查
+  if (o.type === '旅遊') {
+    if (!$('pickup').value) { alert("請選擇上車地點！"); return; }
+    if (!$('room').value) { alert("請選擇房型或併房！"); return; }
+  }
+
   const sponsorList = [];
   document.querySelectorAll('.sponsor-item').forEach(row => {
     const name = row.querySelector('.sponsor-select').value;
@@ -388,11 +402,11 @@ $('regForm').onsubmit = async (e) => {
       sponsorList.push(qSel === '自定義數量' ? `${name}(${row.querySelector('.cQty').value}${row.querySelector('.cUnit').value})` : `${name}(${qSel})`);
     }
   });
+
   $('subBtn').disabled = true;
-  const o = $('eventSelect').selectedOptions[0].dataset;
   
-  // 修改：此處固定為 (1間)，因為間數已整合進房型選單
-  const roomVal = o.type === '旅遊' ? `${$('room').value} (1間)` : '';
+  // 房型處理：若選併房則標示併房，否則標示1間
+  const roomVal = o.type === '旅遊' ? ($('room').value === '我要併房' ? '我要併房' : `${$('room').value} (1間)`) : '';
 
   const payload = {
     eventId: o.eventid, eventType: o.type, userId: $('userId').value, userName: $('userName').value,

@@ -3,11 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="format-detection" content="address=no">
 <title>旅遊 / 尾牙 報名系統</title>
 <style>
   body { font-family: "Microsoft JhengHei", sans-serif; margin:15px; background:#f0f2f5; color: #333; }
   .container { max-width:500px; margin:auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-  h2 { text-align:center; color: #1a73e8; margin-bottom: 20px; }
+  
+  /* 標題樣式 (已移除首頁 ICON 相關樣式) */
+  h2 { color: #1a73e8; margin-bottom: 20px; text-align: center; }
+
   label { display:block; margin-top:12px; font-weight: bold; color: #555; }
   select, input, textarea { width:100%; padding:10px; margin-top:5px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
   .btn-group { margin-top: 25px; }
@@ -21,34 +25,46 @@
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   
-  /* --- 地址：文字純化但保留 ICON 觸發功能 --- */
+  /* --- 官網 ICON 樣式 --- */
+  .store-wrapper { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .web-icon { width: 18px; height: 18px; fill: #1a73e8; cursor: pointer; transition: 0.2s; vertical-align: middle; }
+  .web-icon:active { transform: scale(0.9); }
+
+  /* --- 地址：文字純化且防變色 --- */
   .address-wrapper { display: flex; align-items: flex-start; margin-top: 10px; line-height: 1.5; }
   .address-label { font-weight:bold; flex-shrink:0; }
-  .address-link { display: inline-flex; align-items: center; cursor: pointer; color: #333; text-decoration: none; }
+  .address-link { 
+    display: inline-flex; 
+    align-items: center; 
+    cursor: pointer; 
+    color: inherit !important; 
+    text-decoration: none !important; 
+    -webkit-tap-highlight-color: transparent;
+  }
+  .address-link span, [x-apple-data-detectors] {
+    color: inherit !important;
+    text-decoration: none !important;
+    font-size: inherit !important;
+  }
   .gm-icon { width: 18px; height: 18px; margin-left: 6px; flex-shrink: 0; fill: #EA4335; opacity: 0.8; }
 
-  /* --- 行程表與名單視覺優化 --- */
+  /* --- 行程表與名單樣式保留 --- */
   .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
   .itinerary-header { background: #1a73e8; color: white; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
   .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 500px; overflow-y: auto; background: #fcfdfe; }
-  
   .day-section { margin-bottom: 8px; border: 1px solid #e0e6ed; border-radius: 6px; overflow: hidden; background: #fff; }
   .day-toggle { background: #f8faff; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
   .day-content { display: none; padding: 5px; }
-  
   .itinerary-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .itinerary-table th, .itinerary-table td { border-bottom: 1px solid #eee; padding: 10px 6px; text-align: left; }
   .itinerary-table th { color: #1a73e8; font-size: 11px; background: #f1f6ff; }
-
   .user-list-item { font-size: 13px; color: #444; padding: 8px 12px; border-left: 4px solid #1a73e8; margin: 6px 0; background: #fff; border-radius: 0 4px 4px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-
   .sponsor-item { background: #fdfdfd; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
   .sponsor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .remove-btn { color: #ff4d4d; border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; width: auto; }
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .qty-flex { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
   .custom-qty-grp { display: flex; gap: 5px; margin-top: 8px; }
-
   .map-link-btn { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; padding: 10px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: center; margin-top: 10px; font-weight: bold; }
 </style>
 </head>
@@ -56,13 +72,19 @@
 
 <div class="container">
   <h2>旅遊 / 尾牙 報名系統</h2>
+
   <label>選擇活動：<select id="eventSelect"><option value="">載入活動中...</option></select></label>
 
   <div id="eventInfo">
     <h3 id="evTitle" style="margin:0 0 8px 0; color:#1a73e8;"></h3>
     <p>👤 主辦人：<span id="evHost"></span></p>
     <p>📅 時間：<span id="evTime"></span></p>
-    <p>📍 地點：<span id="evStore"></span></p>
+    <p class="store-wrapper">
+      📍 地點：<span id="evStore"></span>
+      <svg class="web-icon" onclick="openOfficialSite()" viewBox="0 0 24 24" title="開啟官網">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+      </svg>
+    </p>
     <div class="address-wrapper">
       <span class="address-label">🏠 地址：</span>
       <div class="address-link" onclick="openGoogleMap()">
@@ -86,14 +108,11 @@
     <input type="hidden" id="userId">
     <label>報名者姓名：<input type="text" id="userName" readonly></label>
     <label>參加人數：<select id="people"></select></label>
-    
     <div id="weiyaFields" style="display:none;"><label>認桌數量：<select id="table"></select></label></div>
-    
     <div id="travelFields" style="display:none;">
       <label><span style="color:red;">*</span> 上車地點：</label>
       <select id="pickup" onchange="updatePickupMap()"></select>
       <div id="pickupMapLink" class="map-link-btn" style="display:none;" onclick="openPickupMap()">📍 查看 [ <span id="locLabel"></span> ] 上車位置</div>
-      
       <label><span style="color:red;">*</span> 房型選擇 (含價格及剩餘間數)：</label>
       <select id="room"></select>
     </div>
@@ -123,6 +142,16 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
+
+// 新增：開啟官網邏輯
+function openOfficialSite() {
+  const o = $('eventSelect').selectedOptions[0].dataset;
+  if (o.officialsite && o.officialsite !== "undefined" && o.officialsite.trim() !== "") {
+    window.open(o.officialsite, '_blank');
+  } else {
+    alert("此地點暫無官網資料");
+  }
+}
 
 function getDayOfWeek(dateStr) {
   const days = ['日', '一', '二', '三', '四', '五', '六'];
@@ -195,7 +224,8 @@ async function init(){
         startdate: ev.startDate, 
         enddate: ev.endDate, 
         store: ev.store, 
-        address: ev.address 
+        address: ev.address,
+        officialsite: ev.officialSite // 從 Sheet 抓取官網欄位
       });
       $('eventSelect').add(opt);
     });

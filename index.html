@@ -318,26 +318,61 @@ $('regForm').onsubmit = async (e) => {
 // 載入統計數據
 async function loadStats(eventId) {
   const data = await callApi('queryStats', `&eventId=${eventId}`);
-  let total = data.users?.reduce((s, u) => s + (parseInt(u.people)||0), 0) || 0;
-  $('uStats').innerHTML = `<strong>👤 總報名：${total} 人</strong>`;
+  const users = data.users || [];
   
-  let uHtml = '';
-  if(data.users) data.users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人)</div>`);
-  $('uDetail').innerHTML = uHtml;
+  // 1. 取得目前選擇活動的類型 (旅遊 或 尾牙)
+  const eventType = $('eventSelect').selectedOptions[0].dataset.type;
 
-  let spHtml = `<strong>🎁 贊助清單：</strong><br>`;
-  let hasSponsor = false;
-  if(data.users) {
-    data.users.forEach(u => {
-      if(u.sponsor && u.sponsor !== '無' && u.sponsor !== '') {
-        hasSponsor = true;
-        u.sponsor.split(',').forEach(item => {
-          spHtml += `• ${item.trim()} - <span style="color:#1a73e8;">${u.userName}</span><br>`;
-        });
-      }
+  // 2. 統計邏輯
+  let totalPeople = users.reduce((s, u) => s + (parseInt(u.people) || 0), 0);
+  let pickupStats = {}; // 統計上車地點
+  let roomStats = {};   // 統計房型
+
+  if (eventType === '旅遊') {
+    users.forEach(u => {
+      if (u.pickup) pickupStats[u.pickup] = (pickupStats[u.pickup] || 0) + 1; // 以「組」為單位
+      if (u.room) roomStats[u.room] = (roomStats[u.room] || 0) + 1;     // 以「間」為單位
     });
   }
+
+  // 3. 組裝顯示 HTML
+  let statsHtml = `<strong>👤 總報名：${totalPeople} 人</strong><br>`;
+  
+  if (eventType === '旅遊') {
+    statsHtml += `<hr style="margin:8px 0; border-top:1px dashed #ccc;">`;
+    statsHtml += `<strong>📍 上車地點統計：</strong><br>`;
+    for (let loc in pickupStats) {
+      statsHtml += `• ${loc}: ${pickupStats[loc]} 組<br>`;
+    }
+    statsHtml += `<br><strong>🏨 房型需求統計：</strong><br>`;
+    for (let rm in roomStats) {
+      statsHtml += `• ${rm}: ${roomStats[rm]} 間<br>`;
+    }
+  }
+  $('uStats').innerHTML = statsHtml;
+
+  // 4. 顯示名單詳情
+  let uHtml = '<hr style="margin:8px 0; border-top:1px dashed #ccc;"><strong>📝 報名名單：</strong>';
+  users.forEach(u => {
+    // 根據活動類型顯示不同的標籤資訊
+    const extraInfo = (eventType === '旅遊') ? ` [${u.pickup}/${u.room}]` : ` [${u.table}桌]`;
+    uHtml += `<div class="user-list-item">${u.userName} (${u.people}人)${extraInfo}</div>`;
+  });
+  $('uDetail').innerHTML = uHtml;
+
+  // 5. 贊助清單
+  let spHtml = `<hr style="margin:8px 0; border-top:1px dashed #ccc;"><strong>🎁 贊助清單：</strong><br>`;
+  let hasSponsor = false;
+  users.forEach(u => {
+    if (u.sponsor && u.sponsor !== '無' && u.sponsor !== '') {
+      hasSponsor = true;
+      u.sponsor.split(',').forEach(item => {
+        spHtml += `• ${item.trim()} - <span style="color:#1a73e8;">${u.userName}</span><br>`;
+      });
+    }
+  });
   $('sStats').innerHTML = hasSponsor ? spHtml : '<strong>🎁 贊助清單：</strong> 暫無贊助';
+  
   $('stats').style.display = 'block';
 }
 

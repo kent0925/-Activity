@@ -20,15 +20,18 @@
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
   
-  /* 行程表收縮與分頁樣式 */
+  /* 行程表收縮總容器 */
   .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
   .itinerary-header { background: #1a73e8; color: white; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
-  .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 500px; overflow-y: auto; }
+  .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 500px; overflow-y: auto; background: #fcfdfe; }
   
-  /* 新增：天數摺疊樣式 */
-  .day-section { margin-bottom: 8px; border: 1px solid #eee; border-radius: 6px; overflow: hidden; background: #fff; }
-  .day-toggle { background: #f8faff; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
+  /* 天數摺疊區塊樣式 */
+  .day-section { margin-bottom: 8px; border: 1px solid #e0e6ed; border-radius: 6px; overflow: hidden; background: #fff; }
+  .day-toggle { background: #f8faff; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
   .day-content { display: none; padding: 5px; }
+  
+  /* 加減號符號樣式微調 */
+  .day-arrow { font-family: "Courier New", Courier, monospace; font-size: 18px; font-weight: bold; color: #1a73e8; width: 20px; text-align: center; }
   
   .itinerary-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .itinerary-table th, .itinerary-table td { border-bottom: 1px solid #eee; padding: 8px 4px; text-align: left; }
@@ -59,10 +62,9 @@
     <div id="itineraryBox" class="itinerary-container" style="display:none;">
       <div class="itinerary-header" onclick="toggleItinerary()">
         <span>🗺️ 查看分天行程表</span>
-        <span id="arrow">▼</span>
+        <span id="arrow">＋</span>
       </div>
-      <div id="itineraryContent" class="itinerary-content">
-        </div>
+      <div id="itineraryContent" class="itinerary-content"></div>
     </div>
 
     <button type="button" id="mapBtn" style="width:100%; background:#4285F4; color:white; border:none; padding:8px; border-radius:5px; margin-top:10px; cursor:pointer;">📍 開啟 Google 地圖</button>
@@ -113,28 +115,29 @@ function formatOnlyDate(val) {
   return isNaN(d.getTime()) ? val : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 主行程表外框切換
 function toggleItinerary() {
   const content = $('itineraryContent');
   const arrow = $('arrow');
   if (content.style.display === 'block') {
     content.style.display = 'none';
-    arrow.innerText = '▼';
+    arrow.innerText = '＋';
   } else {
     content.style.display = 'block';
-    arrow.innerText = '▲';
+    arrow.innerText = '－';
   }
 }
 
-// 切換天數展開/收合
+// 內部天數摺疊切換 (加號/減號)
 function toggleDay(el) {
   const content = el.nextElementSibling;
   const arrow = el.querySelector('.day-arrow');
   if (content.style.display === 'block') {
     content.style.display = 'none';
-    arrow.innerText = '▼';
+    arrow.innerText = '＋';
   } else {
     content.style.display = 'block';
-    arrow.innerText = '▲';
+    arrow.innerText = '－';
   }
 }
 
@@ -235,12 +238,12 @@ function renderItinerary() {
     
     // 預設展開第一天 (index === 0)
     const displayStyle = index === 0 ? 'block' : 'none';
-    const arrow = index === 0 ? '▲' : '▼';
+    const symbol = index === 0 ? '－' : '＋';
 
     section.innerHTML = `
       <div class="day-toggle" onclick="toggleDay(this)">
         <span>第 ${dayNum} 天 行程</span>
-        <span class="day-arrow">${arrow}</span>
+        <span class="day-arrow">${symbol}</span>
       </div>
       <div class="day-content" style="display: ${displayStyle}">
         <table class="itinerary-table">
@@ -263,6 +266,9 @@ function renderItinerary() {
     container.appendChild(section);
   });
 
+  // 初始化行程外框符號：若行程盒子顯示，重置外框為「＋」(隱藏) 或「－」(顯示)
+  $('arrow').innerText = '＋';
+  $('itineraryContent').style.display = 'none';
   $('itineraryBox').style.display = 'block';
 }
 

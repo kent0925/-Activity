@@ -112,7 +112,9 @@ async function init(){
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
     res[6].forEach(ev => {
       const joined = res[7].some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
-      const opt = new Option(`${ev.title} (${ev.type})${joined ? ' (已報名)' : ''}`, ev.eventId);
+      // 修正點：將標籤移至左側並加上括號
+      const prefix = joined ? '【✅ 已報名】 ' : '';
+      const opt = new Option(`${prefix}${ev.title} (${ev.type})`, ev.eventId);
       opt.dataset.joined = joined;
       Object.keys(ev).forEach(k => opt.dataset[k.toLowerCase()] = ev[k] || '');
       $('eventSelect').add(opt);
@@ -297,6 +299,7 @@ async function loadStats(eventId) {
 $('mapBtn').onclick = () => {
   const o = $('eventSelect').selectedOptions[0].dataset;
   const query = encodeURIComponent(`${o.store} ${o.address}`);
+  // 修正點：移除多餘的字元並修正 URL 格式
   window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
 };
 

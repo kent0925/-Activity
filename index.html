@@ -157,7 +157,6 @@ async function init(){
     keys.forEach((k, i) => masterOptions[k] = res[i]);
 
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
-    // 這裡修正了索引：res[7] 是 Events, res[8] 是 Stats
     const eventList = res[7];
     const statsAll = res[8];
 
@@ -166,7 +165,6 @@ async function init(){
       const prefix = joined ? '【✅ 已報名】 ' : '';
       const opt = new Option(`${prefix}${ev.title} (${ev.type})`, ev.eventId);
       opt.dataset.joined = joined;
-      // 完整存入 dataset 以供切換時讀取
       opt.dataset.eventid = ev.eventId;
       opt.dataset.type = ev.type;
       opt.dataset.title = ev.title;
@@ -203,7 +201,7 @@ $('eventSelect').onchange = () => {
     $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
     fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
     $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
-    renderItinerary(o.value);
+    renderItinerary();
   }
 
   $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
@@ -213,7 +211,7 @@ $('eventSelect').onchange = () => {
   loadStats(o.value);
 };
 
-function renderItinerary(eventId) {
+function renderItinerary() {
   const list = masterOptions.itinerary;
   if (!list || list.length === 0) {
     $('itineraryBox').style.display = 'none';

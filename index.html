@@ -23,11 +23,12 @@
   /* 行程表收縮與分頁樣式 */
   .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
   .itinerary-header { background: #1a73e8; color: white; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
-  .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 400px; overflow-y: auto; }
+  .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 500px; overflow-y: auto; }
   
-  .day-tabs { display: flex; gap: 5px; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 8px; overflow-x: auto; white-space: nowrap; }
-  .day-btn { padding: 6px 15px; border: 1px solid #1a73e8; background: #fff; color: #1a73e8; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: bold; flex-shrink: 0; }
-  .day-btn.active { background: #1a73e8; color: white; }
+  /* 新增：天數摺疊樣式 */
+  .day-section { margin-bottom: 8px; border: 1px solid #eee; border-radius: 6px; overflow: hidden; background: #fff; }
+  .day-toggle { background: #f8faff; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
+  .day-content { display: none; padding: 5px; }
   
   .itinerary-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .itinerary-table th, .itinerary-table td { border-bottom: 1px solid #eee; padding: 8px 4px; text-align: left; }
@@ -61,14 +62,7 @@
         <span id="arrow">▼</span>
       </div>
       <div id="itineraryContent" class="itinerary-content">
-        <div id="dayTabs" class="day-tabs"></div>
-        <table class="itinerary-table">
-          <thead>
-            <tr><th>出發</th><th>地點</th><th>抵達</th><th>地點</th></tr>
-          </thead>
-          <tbody id="itineraryBody"></tbody>
-        </table>
-      </div>
+        </div>
     </div>
 
     <button type="button" id="mapBtn" style="width:100%; background:#4285F4; color:white; border:none; padding:8px; border-radius:5px; margin-top:10px; cursor:pointer;">📍 開啟 Google 地圖</button>
@@ -106,7 +100,6 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
-let currentItineraryData = []; 
 
 function getDayOfWeek(dateStr) {
   const days = ['日', '一', '二', '三', '四', '五', '六'];
@@ -123,6 +116,19 @@ function formatOnlyDate(val) {
 function toggleItinerary() {
   const content = $('itineraryContent');
   const arrow = $('arrow');
+  if (content.style.display === 'block') {
+    content.style.display = 'none';
+    arrow.innerText = '▼';
+  } else {
+    content.style.display = 'block';
+    arrow.innerText = '▲';
+  }
+}
+
+// 切換天數展開/收合
+function toggleDay(el) {
+  const content = el.nextElementSibling;
+  const arrow = el.querySelector('.day-arrow');
   if (content.style.display === 'block') {
     content.style.display = 'none';
     arrow.innerText = '▼';
@@ -218,44 +224,46 @@ function renderItinerary() {
     return;
   }
   
-  currentItineraryData = list;
+  const container = $('itineraryContent');
+  container.innerHTML = ''; 
+  
   const days = [...new Set(list.map(item => item.day))].sort((a, b) => a - b);
   
-  const tabs = $('dayTabs');
-  tabs.innerHTML = '';
-  days.forEach((day, index) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'day-btn' + (index === 0 ? ' active' : '');
-    btn.innerText = `第 ${day} 天`;
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      showDay(day);
-    };
-    tabs.appendChild(btn);
+  days.forEach((dayNum, index) => {
+    const section = document.createElement('div');
+    section.className = 'day-section';
+    
+    // 預設展開第一天 (index === 0)
+    const displayStyle = index === 0 ? 'block' : 'none';
+    const arrow = index === 0 ? '▲' : '▼';
+
+    section.innerHTML = `
+      <div class="day-toggle" onclick="toggleDay(this)">
+        <span>第 ${dayNum} 天 行程</span>
+        <span class="day-arrow">${arrow}</span>
+      </div>
+      <div class="day-content" style="display: ${displayStyle}">
+        <table class="itinerary-table">
+          <thead>
+            <tr><th>出發</th><th>地點</th><th>抵達</th><th>地點</th></tr>
+          </thead>
+          <tbody>
+            ${list.filter(item => item.day == dayNum).map(item => `
+              <tr>
+                <td>${item.startTime || '-'}</td>
+                <td>${item.startLoc || '-'}</td>
+                <td>${item.endTime || '-'}</td>
+                <td>${item.endLoc || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    container.appendChild(section);
   });
 
   $('itineraryBox').style.display = 'block';
-  showDay(days[0]); 
-}
-
-function showDay(dayNum) {
-  const tbody = $('itineraryBody');
-  tbody.innerHTML = '';
-  const filtered = currentItineraryData.filter(item => item.day == dayNum);
-  
-  filtered.forEach(item => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${item.startTime || '-'}</td>
-      <td>${item.startLoc || '-'}</td>
-      <td>${item.endTime || '-'}</td>
-      <td>${item.endLoc || '-'}</td>
-    `;
-    tbody.appendChild(tr);
-  });
 }
 
 $('addSponsorBtn').onclick = createSponsorRow;

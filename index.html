@@ -62,15 +62,9 @@
       </div>
       <div id="itineraryContent" class="itinerary-content">
         <div id="dayTabs" class="day-tabs"></div>
-        
         <table class="itinerary-table">
           <thead>
-            <tr>
-              <th>出發</th>
-              <th>地點</th>
-              <th>抵達</th>
-              <th>地點</th>
-            </tr>
+            <tr><th>出發</th><th>地點</th><th>抵達</th><th>地點</th></tr>
           </thead>
           <tbody id="itineraryBody"></tbody>
         </table>
@@ -112,7 +106,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
-let currentItineraryData = []; // 存放當前活動行程
+let currentItineraryData = []; 
 
 function getDayOfWeek(dateStr) {
   const days = ['日', '一', '二', '三', '四', '五', '六'];
@@ -163,12 +157,25 @@ async function init(){
     keys.forEach((k, i) => masterOptions[k] = res[i]);
 
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
-    res[7].forEach(ev => {
-      const joined = res[8].some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
+    // 這裡修正了索引：res[7] 是 Events, res[8] 是 Stats
+    const eventList = res[7];
+    const statsAll = res[8];
+
+    eventList.forEach(ev => {
+      const joined = statsAll.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
       const prefix = joined ? '【✅ 已報名】 ' : '';
       const opt = new Option(`${prefix}${ev.title} (${ev.type})`, ev.eventId);
       opt.dataset.joined = joined;
-      Object.keys(ev).forEach(k => opt.dataset[k.toLowerCase()] = ev[k] || '');
+      // 完整存入 dataset 以供切換時讀取
+      opt.dataset.eventid = ev.eventId;
+      opt.dataset.type = ev.type;
+      opt.dataset.title = ev.title;
+      opt.dataset.host = ev.host;
+      opt.dataset.time = ev.time;
+      opt.dataset.startdate = ev.startDate;
+      opt.dataset.enddate = ev.endDate;
+      opt.dataset.store = ev.store;
+      opt.dataset.address = ev.address;
       $('eventSelect').add(opt);
     });
   } catch (err) { console.error(err); }
@@ -196,8 +203,6 @@ $('eventSelect').onchange = () => {
     $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
     fill('pickup', masterOptions.pickup); fill('room', masterOptions.room);
     $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
-    
-    // 渲染分天行程
     renderItinerary(o.value);
   }
 
@@ -208,7 +213,6 @@ $('eventSelect').onchange = () => {
   loadStats(o.value);
 };
 
-// 渲染分天行程邏輯
 function renderItinerary(eventId) {
   const list = masterOptions.itinerary;
   if (!list || list.length === 0) {
@@ -217,10 +221,8 @@ function renderItinerary(eventId) {
   }
   
   currentItineraryData = list;
-  // 取得所有不重複的天數並排序
   const days = [...new Set(list.map(item => item.day))].sort((a, b) => a - b);
   
-  // 生成分天按鈕
   const tabs = $('dayTabs');
   tabs.innerHTML = '';
   days.forEach((day, index) => {
@@ -229,7 +231,7 @@ function renderItinerary(eventId) {
     btn.className = 'day-btn' + (index === 0 ? ' active' : '');
     btn.innerText = `第 ${day} 天`;
     btn.onclick = (e) => {
-      e.stopPropagation(); // 避免點擊按鈕時觸發外層收縮
+      e.stopPropagation();
       document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       showDay(day);
@@ -238,7 +240,7 @@ function renderItinerary(eventId) {
   });
 
   $('itineraryBox').style.display = 'block';
-  showDay(days[0]); // 預設顯示第一天
+  showDay(days[0]); 
 }
 
 function showDay(dayNum) {

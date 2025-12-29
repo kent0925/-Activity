@@ -226,7 +226,11 @@ async function init(){
     keys.forEach((k, i) => masterOptions[k] = res[i]);
 
     $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
+    
+    // --- 此處為唯一修正邏輯：增加過濾 eventId 為空的項目 ---
     res[7].forEach(ev => {
+      if (!ev.eventId || String(ev.eventId).trim() === "") return; // 略過空白列
+
       const joined = res[8].some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
       const opt = new Option(`${joined ? '【✅ 已報名】 ' : ''}${ev.title} (${ev.type})`, ev.eventId);
       

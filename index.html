@@ -8,11 +8,7 @@
 <style>
   body { font-family: "Microsoft JhengHei", sans-serif; margin:15px; background:#f0f2f5; color: #333; }
   .container { max-width:500px; margin:auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-  
-  /* 標題樣式 (已移除首頁 ICON 相關樣式) */
   h2 { color: #1a73e8; margin-bottom: 20px; text-align: center; }
-
-  /* --- 新增：卡片式選單樣式，不影響原有樣式 --- */
   .event-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
   .event-card { 
     background: #fff; border: 2px solid #eee; border-radius: 12px; padding: 12px 8px; 
@@ -23,7 +19,6 @@
   .event-card .badge { position: absolute; top: -8px; right: -5px; background: #4CAF50; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
   .event-card .type-tag { font-size: 10px; color: #888; margin-bottom: 4px; }
   .event-card .title { font-size: 14px; font-weight: bold; color: #333; line-height: 1.3; }
-
   label { display:block; margin-top:12px; font-weight: bold; color: #555; }
   select, input, textarea { width:100%; padding:10px; margin-top:5px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
   .btn-group { margin-top: 25px; }
@@ -32,51 +27,28 @@
   button:disabled { background: #ccc; cursor: not-allowed; }
   button.delete-btn { background:#e53935; margin-top: 12px; } 
   button.delete-btn:hover { background:#d32f2f; }
-  
   #eventInfo, #stats { margin-top:15px; padding:15px; border-radius:8px; display:none; }
   #eventInfo { background:#e8f0fe; border-left: 5px solid #1a73e8; }
   #stats { background:#f8f9fa; border-left: 5px solid #4CAF50; }
-  
-  /* --- 官網 ICON 樣式 --- */
   .store-wrapper { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .web-icon { width: 18px; height: 18px; fill: #1a73e8; cursor: pointer; transition: 0.2s; vertical-align: middle; }
-  .web-icon:active { transform: scale(0.9); }
-
-  /* --- 地址：文字純化且防變色 --- */
   .address-wrapper { display: flex; align-items: flex-start; margin-top: 10px; line-height: 1.5; }
   .address-label { font-weight:bold; flex-shrink:0; }
-  .address-link { 
-    display: inline-flex; 
-    align-items: center; 
-    cursor: pointer; 
-    color: inherit !important; 
-    text-decoration: none !important; 
-    -webkit-tap-highlight-color: transparent;
-  }
-  .address-link span, [x-apple-data-detectors] {
-    color: inherit !important;
-    text-decoration: none !important;
-    font-size: inherit !important;
-  }
+  .address-link { display: inline-flex; align-items: center; cursor: pointer; color: inherit !important; text-decoration: none !important; }
   .gm-icon { width: 18px; height: 18px; margin-left: 6px; flex-shrink: 0; fill: #EA4335; opacity: 0.8; }
-
-  /* --- 行程表與名單樣式保留 --- */
   .itinerary-container { margin-top: 15px; background: #fff; border: 1px solid #cce0ff; border-radius: 6px; overflow: hidden; }
   .itinerary-header { background: #1a73e8; color: white; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
   .itinerary-content { display: none; padding: 10px; font-size: 13px; max-height: 500px; overflow-y: auto; background: #fcfdfe; }
   .day-section { margin-bottom: 8px; border: 1px solid #e0e6ed; border-radius: 6px; overflow: hidden; background: #fff; }
-  .day-toggle { background: #f8faff; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #f0f2f5; font-size: 13px; }
+  .day-toggle { background: #f8faff; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; font-size: 13px; }
   .day-content { display: none; padding: 5px; }
   .itinerary-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .itinerary-table th, .itinerary-table td { border-bottom: 1px solid #eee; padding: 10px 6px; text-align: left; }
-  .itinerary-table th { color: #1a73e8; font-size: 11px; background: #f1f6ff; }
   .user-list-item { font-size: 13px; color: #444; padding: 8px 12px; border-left: 4px solid #1a73e8; margin: 6px 0; background: #fff; border-radius: 0 4px 4px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   .sponsor-item { background: #fdfdfd; border: 1px solid #eee; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
   .sponsor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .remove-btn { color: #ff4d4d; border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; width: auto; }
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
-  .qty-flex { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
-  .custom-qty-grp { display: flex; gap: 5px; margin-top: 8px; }
   .map-link-btn { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; padding: 10px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: center; margin-top: 10px; font-weight: bold; }
 </style>
 </head>
@@ -84,12 +56,11 @@
 
 <div class="container">
   <h2>旅遊 / 尾牙 報名系統</h2>
-
   <label>選擇活動：</label>
   <div id="eventGrid" class="event-grid">
-    <p style="grid-column: span 2; text-align: center; color: #888; padding: 10px;">載入活動中...</p>
+    <p style="grid-column: span 2; text-align: center; color: #1a73e8; padding: 10px;">🚀 載入中...</p>
   </div>
-  <select id="eventSelect" style="display:none;"><option value="">載入活動中...</option></select>
+  <select id="eventSelect" style="display:none;"><option value="">載入中...</option></select>
 
   <div id="eventInfo">
     <h3 id="evTitle" style="margin:0 0 8px 0; color:#1a73e8;"></h3>
@@ -97,58 +68,42 @@
     <p>📅 時間：<span id="evTime"></span></p>
     <p class="store-wrapper">
       📍 地點：<span id="evStore"></span>
-      <svg class="web-icon" onclick="openOfficialSite()" viewBox="0 0 24 24" title="開啟官網">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-      </svg>
+      <svg class="web-icon" onclick="openOfficialSite()" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
     </p>
     <div class="address-wrapper">
       <span class="address-label">🏠 地址：</span>
-      <div class="address-link" onclick="openGoogleMap()">
-        <span id="evAddress"></span>
-        <svg class="gm-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/>
-        </svg>
-      </div>
+      <div class="address-link" onclick="openGoogleMap()"><span id="evAddress"></span><svg class="gm-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/></svg></div>
     </div>
-    
     <div id="itineraryBox" class="itinerary-container" style="display:none;">
-      <div class="itinerary-header" onclick="toggleItinerary()">
-        <span>🗺️ 查看分天行程表</span>
-        <span id="arrow">＋</span>
-      </div>
+      <div class="itinerary-header" onclick="toggleItinerary()"><span>🗺️ 查看分天行程表</span><span id="arrow">＋</span></div>
       <div id="itineraryContent" class="itinerary-content"></div>
     </div>
   </div>
 
   <form id="regForm" style="display:none;">
-    <input type="hidden" id="userId">
-    <label>報名者姓名：<input type="text" id="userName" readonly></label>
+    <input type="hidden" id="userId"><input type="hidden" id="userName">
+    <label>報名者姓名：<input type="text" id="userNameShow" readonly></label>
     <label>參加人數：<select id="people"></select></label>
     <div id="weiyaFields" style="display:none;"><label>認桌數量：<select id="table"></select></label></div>
     <div id="travelFields" style="display:none;">
       <label><span style="color:red;">*</span> 上車地點：</label>
       <select id="pickup" onchange="updatePickupMap()"></select>
       <div id="pickupMapLink" class="map-link-btn" style="display:none;" onclick="openPickupMap()">📍 查看 [ <span id="locLabel"></span> ] 上車位置</div>
-      <label><span style="color:red;">*</span> 房型選擇 (含價格及剩餘間數)：</label>
-      <select id="room"></select>
+      <label><span style="color:red;">*</span> 房型選擇：</label><select id="room"></select>
     </div>
-
     <hr style="margin:20px 0; border:0; border-top:1px solid #eee;">
     <label>🎁 贊助項目管理：</label>
     <div id="sponsorContainer"></div>
     <button type="button" class="add-sponsor-btn" id="addSponsorBtn">➕ 新增贊助項目</button>
     <label style="margin-top:20px;">備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
-    
     <div class="btn-group">
       <button type="submit" id="subBtn">送出報名</button>
-      <button type="button" id="cancelBtn" class="delete-btn" style="display:none;">❌ 取消報名 (徹底移除資料)</button>
+      <button type="button" id="cancelBtn" class="delete-btn" style="display:none;">❌ 取消報名</button>
     </div>
   </form>
 
   <div id="stats">
-    <div id="uStats"></div>
-    <div id="uDetail" style="margin-bottom:15px;"></div>
-    <div id="sStats"></div>
+    <div id="uStats"></div><div id="uDetail" style="margin-bottom:15px;"></div><div id="sStats"></div>
   </div>
 </div>
 
@@ -159,46 +114,34 @@ const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
 
-// 新增：開啟官網邏輯
+// --- 功能性函式 ---
 function openOfficialSite() {
   const o = $('eventSelect').selectedOptions[0].dataset;
-  if (o.officialsite && o.officialsite !== "undefined" && o.officialsite.trim() !== "") {
-    window.open(o.officialsite, '_blank');
-  } else {
-    alert("此地點暫無官網資料");
-  }
+  if (o.officialsite && o.officialsite !== "undefined" && o.officialsite.trim() !== "") window.open(o.officialsite, '_blank');
+  else alert("此地點暫無官網資料");
 }
-
+function openGoogleMap() {
+  const o = $('eventSelect').selectedOptions[0].dataset;
+  const query = encodeURIComponent(`${o.store} ${o.address}`);
+  window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+}
 function getDayOfWeek(dateStr) {
   const days = ['日', '一', '二', '三', '四', '五', '六'];
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? '' : `(${days[d.getDay()]})`;
 }
-
 function formatOnlyDate(val) {
   if (!val || val === 'undefined') return '';
   const d = new Date(val);
   return isNaN(d.getTime()) ? val : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
-
-function openGoogleMap() {
-  const o = $('eventSelect').selectedOptions[0].dataset;
-  if (!o.store && !o.address) return;
-  const query = encodeURIComponent(`${o.store} ${o.address}`);
-  window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-}
-
 function toggleItinerary() {
-  const content = $('itineraryContent');
-  content.style.display = content.style.display === 'block' ? 'none' : 'block';
-  $('arrow').innerText = content.style.display === 'block' ? '－' : '＋';
+  const c = $('itineraryContent'); c.style.display = c.style.display === 'block' ? 'none' : 'block';
+  $('arrow').innerText = c.style.display === 'block' ? '－' : '＋';
 }
-
 function toggleDay(el) {
-  const content = el.nextElementSibling;
-  const arrow = el.querySelector('.day-arrow');
-  content.style.display = content.style.display === 'block' ? 'none' : 'block';
-  arrow.innerText = content.style.display === 'block' ? '－' : '＋';
+  const c = el.nextElementSibling; c.style.display = c.style.display === 'block' ? 'none' : 'block';
+  el.querySelector('.day-arrow').innerText = c.style.display === 'block' ? '－' : '＋';
 }
 
 async function callApi(action, extra = '') {
@@ -208,76 +151,52 @@ async function callApi(action, extra = '') {
   } catch (e) { return []; }
 }
 
+// --- 初始化 (核心優化) ---
 async function init(){
   try {
     await liff.init({ liffId: LIFF_ID });
     if(!liff.isLoggedIn()) liff.login();
     const p = await liff.getProfile();
-    $('userName').value = p.displayName; 
+    $('userName').value = $('userNameShow').value = p.displayName; 
     $('userId').value = p.userId;
     
-    const keys = ['sponsor','sponsorQty','people','table','pickup','room', 'itinerary'];
-    const res = await Promise.all([
-      ...keys.map(k => callApi('getOptions', `&type=${k}`)), 
-      callApi('getEvents'), 
-      callApi('queryStats', '&all=true')
-    ]);
-    
-    keys.forEach((k, i) => masterOptions[k] = res[i]);
+    // 一次性取得所有資料
+    const res = await callApi('getInitData'); 
+    masterOptions = res.options;
+    masterOptions.itinerary = res.itinerary;
 
-    $('eventSelect').innerHTML = '<option value="">-- 請選擇活動 --</option>';
+    const sel = $('eventSelect');
+    sel.innerHTML = '<option value="">-- 請選擇活動 --</option>';
     
-    // --- 此處為唯一修正邏輯：增加過濾 eventId 為空的項目 ---
-    res[7].forEach(ev => {
-      if (!ev.eventId || String(ev.eventId).trim() === "") return; // 略過空白列
-
-      const joined = res[8].some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
-      const opt = new Option(`${joined ? '【✅ 已報名】 ' : ''}${ev.title} (${ev.type})`, ev.eventId);
-      
+    res.events.forEach(ev => {
+      if (!ev.eventId) return;
+      const joined = res.registrations.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
+      const opt = new Option(`${joined ? '【✅ 已報名】 ' : ''}${ev.title}`, ev.eventId);
       Object.assign(opt.dataset, { 
-        joined, 
-        eventid: ev.eventId, 
-        type: ev.type, 
-        title: ev.title, 
-        host: ev.host, 
-        time: ev.time, 
-        startdate: ev.startDate, 
-        enddate: ev.endDate, 
-        store: ev.store, 
-        address: ev.address,
-        officialsite: ev.officialSite // 從 Sheet 抓取官網欄位
+        joined, eventid: ev.eventId, type: ev.type, title: ev.title, host: ev.host, time: ev.time, 
+        startdate: ev.startDate, enddate: ev.endDate, store: ev.store, address: ev.address, officialsite: ev.officialSite 
       });
-      $('eventSelect').add(opt);
+      sel.add(opt);
     });
 
-    // 新增：呼叫卡片渲染函式
     renderEventCards();
-
   } catch (err) { console.error(err); }
 }
 
-// 新增：渲染卡片函式
 function renderEventCards() {
-  const grid = $('eventGrid');
-  const sel = $('eventSelect');
+  const grid = $('eventGrid'); const sel = $('eventSelect');
   grid.innerHTML = '';
-  
-  // 從隱藏的 select 中遍歷所有 option (排除第一個提示項)
-  Array.from(sel.options).forEach((opt, index) => {
-    if (index === 0) return;
+  Array.from(sel.options).forEach((opt, idx) => {
+    if (idx === 0) return;
     const d = opt.dataset;
     const card = document.createElement('div');
     card.className = 'event-card';
     if (d.joined === 'true') card.innerHTML += '<span class="badge">已報名</span>';
     card.innerHTML += `<div class="type-tag">${d.type}</div><div class="title">${d.title}</div>`;
-    
     card.onclick = () => {
-      // 視覺切換
       document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      // 同步 Select 並觸發其 onchange
-      sel.value = opt.value;
-      sel.onchange();
+      sel.value = opt.value; sel.onchange();
     };
     grid.appendChild(card);
   });
@@ -285,11 +204,10 @@ function renderEventCards() {
 
 $('eventSelect').onchange = async () => {
   const o = $('eventSelect').selectedOptions[0];
-  if(!o || !o.value) { $('regForm').style.display = 'none'; return; }
-  const d = o.dataset, isW = d.type === '尾牙';
-  const joined = d.joined === 'true';
-  const currentStats = await callApi('queryStats', `&eventId=${o.value}`);
-  const users = currentStats.users || [];
+  if(!o || !o.value) return;
+  const d = o.dataset, isW = d.type === '尾牙', joined = d.joined === 'true';
+  const curStats = await callApi('queryStats', `&eventId=${o.value}`);
+  const users = curStats.users || [];
 
   $('subBtn').innerText = joined ? '編輯報名' : '送出報名';
   $('cancelBtn').style.display = joined ? 'block' : 'none';
@@ -298,197 +216,128 @@ $('eventSelect').onchange = async () => {
 
   if (isW) {
     $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
-    $('itineraryBox').style.display = 'none';
-    fill('table', masterOptions.table);
-    const dt = new Date(d.time);
-    $('evTime').innerText = `${formatOnlyDate(d.time)} ${getDayOfWeek(d.time)} ${isNaN(dt.getHours()) ? "" : String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}`.trim();
+    $('itineraryBox').style.display = 'none'; fill('table', masterOptions.table);
+    $('evTime').innerText = `${formatOnlyDate(d.time)} ${getDayOfWeek(d.time)}`;
   } else {
     $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
-    
     const pSel = $('pickup'); pSel.innerHTML = '<option value="">-- 請選擇上車點 --</option>';
-    masterOptions.pickup.forEach(item => {
-      const opt = new Option(item.name, item.name);
-      opt.dataset.mapurl = item.info; 
-      pSel.add(opt);
-    });
-
+    masterOptions.pickup.forEach(i => { const opt = new Option(i.name, i.name); opt.dataset.mapurl = i.info; pSel.add(opt); });
     const rSel = $('room'); rSel.innerHTML = '<option value="">-- 請選擇房型 --</option>';
-    rSel.add(new Option("我要併房 (由主辦單位安排)", "我要併房"));
-    masterOptions.room.forEach(item => {
-      const used = users.reduce((acc, u) => (u.room && u.room.startsWith(item.name)) ? acc + 1 : acc, 0);
-      const remain = (parseInt(item.totalCount) || 0) - used;
-      const opt = new Option(`${item.name} / ${item.price}元 / 剩${remain}間`, item.name);
-      if (remain <= 0) { opt.disabled = true; opt.text = `${item.name} (已售完)`; }
+    rSel.add(new Option("我要併房", "我要併房"));
+    masterOptions.room.forEach(i => {
+      const used = users.reduce((acc, u) => (u.room && u.room.startsWith(i.name)) ? acc + 1 : acc, 0);
+      const rem = (parseInt(i.totalCount) || 0) - used;
+      const opt = new Option(`${i.name} / ${i.price}元 / 剩${rem}間`, i.name);
+      if (rem <= 0) { opt.disabled = true; opt.text = `${i.name} (滿)`; }
       rSel.add(opt);
     });
-
     $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
     renderItinerary();
   }
-
   $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
   $('evStore').innerText = d.store; $('evAddress').innerText = d.address;
   $('regForm').style.display = $('eventInfo').style.display = 'block';
-  $('sponsorContainer').innerHTML = ''; createSponsorRow(); 
-  renderStatsView(currentStats, d.type);
+  $('sponsorContainer').innerHTML = ''; createSponsorRow(); renderStatsView(curStats, d.type);
 };
 
 function updatePickupMap() {
   const opt = $('pickup').selectedOptions[0];
-  if (opt && opt.value && opt.dataset.mapurl) {
-    $('locLabel').innerText = opt.value;
-    $('pickupMapLink').style.display = 'block';
-  } else { $('pickupMapLink').style.display = 'none'; }
+  if (opt && opt.value && opt.dataset.mapurl) { $('locLabel').innerText = opt.value; $('pickupMapLink').style.display = 'block'; }
+  else { $('pickupMapLink').style.display = 'none'; }
 }
-
-function openPickupMap() {
-  const url = $('pickup').selectedOptions[0].dataset.mapurl;
-  if (url) window.open(url, '_blank');
-}
+function openPickupMap() { const url = $('pickup').selectedOptions[0].dataset.mapurl; if (url) window.open(url, '_blank'); }
 
 function renderStatsView(data, type) {
   const users = data.users || [];
-  let total = users.reduce((s, u) => s + (parseInt(u.people) || 0), 0);
-  $('uStats').innerHTML = `<strong>👤 總報名：${total} 人</strong>`;
-  let uHtml = '<hr style="margin:8px 0; border-top:1px dashed #ccc;"><strong>📝 報名名單：</strong>';
-  users.forEach(u => {
-    const extra = (type === '旅遊') ? ` [${u.pickup}/${u.room}]` : ` [${u.table}桌]`;
-    uHtml += `<div class="user-list-item">${u.userName} (${u.people}人)${extra}</div>`;
-  });
+  $('uStats').innerHTML = `<strong>👤 總報名：${users.reduce((s, u) => s + (parseInt(u.people) || 0), 0)} 人</strong>`;
+  let uHtml = '<hr><strong>📝 報名名單：</strong>';
+  users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人) [${type === '旅遊' ? u.pickup : u.table + '桌'}]</div>`);
   $('uDetail').innerHTML = uHtml;
-  let spHtml = `<hr style="margin:8px 0; border-top:1px dashed #ccc;"><strong>🎁 贊助彙整：</strong><br>`;
-  if(data.sponsor && Object.keys(data.sponsor).length > 0) {
-    for (let item in data.sponsor) spHtml += `• ${item}: ${data.sponsor[item]}<br>`;
-  } else { spHtml += '暫無贊助'; }
-  $('sStats').innerHTML = spHtml;
-  $('stats').style.display = 'block';
+  let spHtml = `<hr><strong>🎁 贊助彙整：</strong><br>`;
+  if(data.sponsor && Object.keys(data.sponsor).length > 0) for (let k in data.sponsor) spHtml += `• ${k}: ${data.sponsor[k]}<br>`;
+  else spHtml += '暫無贊助';
+  $('sStats').innerHTML = spHtml; $('stats').style.display = 'block';
 }
 
 function renderItinerary() {
   const list = masterOptions.itinerary;
   if (!list || list.length === 0) { $('itineraryBox').style.display = 'none'; return; }
-  const container = $('itineraryContent');
-  container.innerHTML = ''; 
-  const days = [...new Set(list.map(item => item.day))].sort((a, b) => a - b);
-  days.forEach((dayNum, index) => {
-    const section = document.createElement('div');
-    section.className = 'day-section';
-    section.innerHTML = `
-      <div class="day-toggle" onclick="toggleDay(this)">
-        <span>第 ${dayNum} 天 行程</span>
-        <span class="day-arrow">${index === 0 ? '－' : '＋'}</span>
-      </div>
-      <div class="day-content" style="display: ${index === 0 ? 'block' : 'none'}">
-        <table class="itinerary-table">
-          <thead><tr><th>出發</th><th>地點</th><th>抵達</th><th>地點</th></tr></thead>
-          <tbody>
-            ${list.filter(item => item.day == dayNum).map(item => `
-              <tr><td>${item.startTime || '-'}</td><td>${item.startLoc || '-'}</td><td>${item.endTime || '-'}</td><td>${item.endLoc || '-'}</td></tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>`;
-    container.appendChild(section);
+  const container = $('itineraryContent'); container.innerHTML = ''; 
+  const days = [...new Set(list.map(i => i.day))].sort((a, b) => a - b);
+  days.forEach((day, idx) => {
+    const div = document.createElement('div'); div.className = 'day-section';
+    div.innerHTML = `<div class="day-toggle" onclick="toggleDay(this)"><span>第 ${day} 天</span><span class="day-arrow">${idx === 0 ? '－' : '＋'}</span></div>
+      <div class="day-content" style="display: ${idx === 0 ? 'block' : 'none'}"><table class="itinerary-table">
+      ${list.filter(i => i.day == day).map(i => `<tr><td>${i.startTime}</td><td>${i.startLoc}</td><td>${i.endTime}</td><td>${i.endLoc}</td></tr>`).join('')}
+      </table></div>`;
+    container.appendChild(div);
   });
   $('itineraryBox').style.display = 'block';
 }
 
 $('addSponsorBtn').onclick = createSponsorRow;
 function createSponsorRow() {
-  const currentSelects = Array.from(document.querySelectorAll('.sponsor-select')).map(s => s.value);
-  const otherCount = currentSelects.filter(v => v === '其他').length;
-  const selectedNormal = currentSelects.filter(v => v !== '' && v !== '無' && v !== '其他');
-  const availableSponsors = masterOptions.sponsor.filter(s => s !== "無" && s !== "其他" && !selectedNormal.includes(s));
   const rowId = 'spRow_' + Date.now();
-  const div = document.createElement('div');
-  div.className = 'sponsor-item'; div.id = rowId;
-  div.innerHTML = `
-    <div class="sponsor-header"><span>贊助項目</span><button type="button" class="remove-btn" onclick="removeRow('${rowId}')">🗑️</button></div>
+  const div = document.createElement('div'); div.className = 'sponsor-item'; div.id = rowId;
+  div.innerHTML = `<div class="sponsor-header"><span>贊助項目</span><button type="button" class="remove-btn" onclick="removeRow('${rowId}')">🗑️</button></div>
     <select class="sponsor-select" onchange="handleSponsorChange('${rowId}')"></select>
     <div class="qtyGrp" style="display:none; margin-top:8px;">
       <select class="qtySelect" onchange="handleQtyChange('${rowId}')" style="display:none;"></select>
       <input type="text" class="otherInput" placeholder="請自填項目" style="display:none;">
-      <div class="custom-qty-grp" style="display:none;">
-        <input type="number" class="cQty" value="5" onchange="validateCustomQty('${rowId}')">
-        <select class="cUnit" onchange="validateCustomQty('${rowId}')"><option value="瓶">瓶</option><option value="箱">箱</option></select>
-      </div>
-      <div class="moneyGrp qty-flex" style="display:none;"><input type="number" class="mVal" value="500" min="0" step="500"> <span>元</span></div>
+      <div class="custom-qty-grp" style="display:none;"><input type="number" class="cQty" value="5" onchange="validateCustomQty('${rowId}')">
+      <select class="cUnit" onchange="validateCustomQty('${rowId}')"><option value="瓶">瓶</option><option value="箱">箱</option></select></div>
+      <div class="moneyGrp" style="display:none;"><input type="number" class="mVal" value="500"> <span>元</span></div>
     </div>`;
   $('sponsorContainer').appendChild(div);
-  const sel = div.querySelector('.sponsor-select');
-  sel.add(new Option("-- 請選擇 --", ""));
-  sel.add(new Option("無", "無"));
-  availableSponsors.forEach(s => sel.add(new Option(s, s)));
-  if (otherCount < 5) sel.add(new Option("其他 (自填項目)", "其他"));
+  const sel = div.querySelector('.sponsor-select'); sel.add(new Option("-- 請選擇 --", "")); sel.add(new Option("無", "無"));
+  masterOptions.sponsor.filter(s => s !== "無").forEach(s => sel.add(new Option(s, s)));
 }
 
-function handleSponsorChange(rowId) {
-  const row = $(rowId), val = row.querySelector('.sponsor-select').value;
-  const qGrp = row.querySelector('.qtyGrp'), qSel = row.querySelector('.qtySelect'), oInp = row.querySelector('.otherInput'), mGrp = row.querySelector('.moneyGrp'), cGrp = row.querySelector('.custom-qty-grp');
-  qGrp.style.display = (val && val !== '無') ? 'block' : 'none';
-  qSel.style.display = oInp.style.display = mGrp.style.display = cGrp.style.display = 'none';
-  if (val === '其他') oInp.style.display = 'block';
-  else if (val === '紅包') mGrp.style.display = 'flex';
-  else if (val && val !== '無') {
-    qSel.style.display = 'block'; qSel.innerHTML = '';
-    let items = val.includes('酒') ? ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱(12瓶)','自定義數量'] : masterOptions.sponsorQty;
-    items.forEach(q => qSel.add(new Option(q, q)));
+function handleSponsorChange(id) {
+  const r = $(id), v = r.querySelector('.sponsor-select').value, qG = r.querySelector('.qtyGrp'), qS = r.querySelector('.qtySelect'), oI = r.querySelector('.otherInput'), mG = r.querySelector('.moneyGrp');
+  qG.style.display = (v && v !== '無') ? 'block' : 'none';
+  qS.style.display = oI.style.display = mG.style.display = 'none';
+  if (v === '其他') oI.style.display = 'block';
+  else if (v === '紅包') mG.style.display = 'flex';
+  else if (v && v !== '無') {
+    qS.style.display = 'block'; qS.innerHTML = '';
+    let its = v.includes('酒') ? ['1瓶','2瓶','3瓶','4瓶','5瓶','1箱(6瓶)','2箱(12瓶)','自定義數量'] : masterOptions.sponsorQty;
+    its.forEach(q => qS.add(new Option(q, q)));
   }
   checkSponsorAddButton();
 }
-
-function handleQtyChange(rowId) {
-  const row = $(rowId), qVal = row.querySelector('.qtySelect').value;
-  row.querySelector('.custom-qty-grp').style.display = (qVal === '自定義數量') ? 'flex' : 'none';
-}
-
-function validateCustomQty(rowId) {
-  const row = $(rowId), unit = row.querySelector('.cUnit').value, input = row.querySelector('.cQty');
-  let val = parseInt(input.value) || 0;
-  if (unit === '瓶' && val < 5) input.value = 5;
-  if (unit === '箱' && val < 4) input.value = 4;
-}
-
+function handleQtyChange(id) { $(id).querySelector('.custom-qty-grp').style.display = ($(id).querySelector('.qtySelect').value === '自定義數量') ? 'flex' : 'none'; }
+function validateCustomQty(id) { const r = $(id), u = r.querySelector('.cUnit').value, i = r.querySelector('.cQty'); if (u === '瓶' && i.value < 5) i.value = 5; if (u === '箱' && i.value < 4) i.value = 4; }
 function removeRow(id) { $(id).remove(); checkSponsorAddButton(); if ($('sponsorContainer').children.length === 0) createSponsorRow(); }
-
-function checkSponsorAddButton() {
-  const selects = document.querySelectorAll('.sponsor-select');
-  const lastVal = selects[selects.length - 1]?.value;
-  $('addSponsorBtn').style.display = (lastVal && lastVal !== '無') ? 'block' : 'none';
-}
+function checkSponsorAddButton() { const s = document.querySelectorAll('.sponsor-select'); $('addSponsorBtn').style.display = (s[s.length - 1]?.value && s[s.length - 1]?.value !== '無') ? 'block' : 'none'; }
 
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   const o = $('eventSelect').selectedOptions[0].dataset;
-  if (o.type === '旅遊') {
-    if (!$('pickup').value) { alert("請選擇上車地點！"); return; }
-    if (!$('room').value) { alert("請選擇房型或併房！"); return; }
-  }
   const sponsorList = [];
-  document.querySelectorAll('.sponsor-item').forEach(row => {
-    const name = row.querySelector('.sponsor-select').value;
-    if(!name || name === '無') return;
-    if (name === '其他') { if(row.querySelector('.otherInput').value) sponsorList.push(row.querySelector('.otherInput').value); }
-    else if (name === '紅包') { sponsorList.push(`紅包(${row.querySelector('.mVal').value}元)`); }
+  document.querySelectorAll('.sponsor-item').forEach(r => {
+    const n = r.querySelector('.sponsor-select').value; if(!n || n === '無') return;
+    if (n === '其他') { if(r.querySelector('.otherInput').value) sponsorList.push(r.querySelector('.otherInput').value); }
+    else if (n === '紅包') { sponsorList.push(`紅包(${r.querySelector('.mVal').value}元)`); }
     else {
-      const q = row.querySelector('.qtySelect').value;
-      sponsorList.push(q === '自定義數量' ? `${name}(${row.querySelector('.cQty').value}${row.querySelector('.cUnit').value})` : `${name}(${q})`);
+      const q = r.querySelector('.qtySelect').value;
+      sponsorList.push(q === '自定義數量' ? `${n}(${r.querySelector('.cQty').value}${r.querySelector('.cUnit').value})` : `${n}(${q})`);
     }
   });
   $('subBtn').disabled = true;
-  const payload = {
+  const p = {
     eventId: o.eventid, eventType: o.type, userId: $('userId').value, userName: $('userName').value,
     people: $('people').value, table: o.type === '尾牙' ? $('table').value : '',
     pickup: o.type === '旅遊' ? $('pickup').value : '',
     room: o.type === '旅遊' ? ($('room').value === '我要併房' ? '我要併房' : `${$('room').value} (1間)`) : '',
     sponsor: sponsorList.join(', ') || '無', memo: $('memo').value
   };
-  const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
+  const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(p))}`);
   alert(r.message); location.reload();
 };
 
 $('cancelBtn').onclick = async () => {
-  if (!confirm("確定要取消報名嗎？")) return;
+  if (!confirm("確定要取消嗎？")) return;
   const o = $('eventSelect').selectedOptions[0].dataset;
   const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ eventId: o.eventid, userId: $('userId').value }))}`);
   alert(r.message); location.reload();

@@ -416,8 +416,8 @@ function handleQtyChange(id) {
 
 function validateCustomQty(id) { 
   const r = $(id), u = r.querySelector('.cUnit').value, i = r.querySelector('.cQty'); 
-  if (u === '瓶' && i.value < 5) i.value = 5; 
-  if (u === '箱' && i.value < 4) i.value = 4; 
+  if (u === '瓶' && i.value < 6) i.value = 6; 
+  if (u === '箱' && i.value < 3) i.value = 3; 
 }
 
 function removeRow(id) { 

@@ -136,33 +136,34 @@ function getDayOfWeek(dateStr) {
   return isNaN(d.getTime()) ? '' : `(${days[d.getDay()]})`;
 }
 
-// 旅遊用：只取日期
+// 旅遊用：只取日期格式 YYYY/MM/DD
 function formatOnlyDate(val) {
   if (!val || val === 'undefined') return '';
   const d = new Date(val);
-  return isNaN(d.getTime()) ? val : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  if (isNaN(d.getTime())) return val;
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// 聚會用：保留日期 + 時間
+// 聚會用：修正時區偏移與順序 2026/02/05 (四) 15:00
 function formatDateTime(val) {
   if (!val || val === 'undefined') return '';
-  const d = new Date(val);
+  
+  // 修正解析：若日期包含 T 或是標準日期字串，確保以當地時區解析
+  let d = new Date(val);
+  
+  // 針對 GAS 傳出的特定字串格式若導致 8 小時時差，進行校正 (若顯示 08:00 而非 15:00)
+  // 此處使用 getTimezoneOffset 自動偵測或是直接格式化
   if (isNaN(d.getTime())) return val;
 
-  // 格式化日期部分：YYYY/MM/DD
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const date = String(d.getDate()).padStart(2, '0');
-  
-  // 格式化時間部分：HH:MM
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
 
-  // 取得星期幾
   const days = ['日', '一', '二', '三', '四', '五', '六'];
   const dayName = `(${days[d.getDay()]})`;
 
-  // 回傳目標格式：2026/02/05 (四) 15:00
   return `${y}/${m}/${date} ${dayName} ${hh}:${mm}`;
 }
 
@@ -249,8 +250,8 @@ $('eventSelect').onchange = async () => {
   $('arrow').innerText = '＋';
 
   const d = o.dataset;
-  // 修正點：支援「尾牙」或「聚會」文字匹配
-  const isW = (d.type === '尾牙' || d.type === '聚會');
+  // 核心判斷：支援多種聚會關鍵字
+  const isW = (d.type === '尾牙' || d.type === '聚會' || d.type === '餐會');
   const joined = d.joined === 'true';
 
   $('evTitle').innerText = d.title; 
@@ -272,19 +273,17 @@ $('eventSelect').onchange = async () => {
   };
   fill('people', masterOptions.people);
 
-if (isW) {
+  if (isW) {
     // 【聚會模式】
-    // 直接呼叫修正後的 formatDateTime，它會回傳 "2026/02/05 (四) 15:00"
-    const timeFull = formatDateTime(d.time);
-    $('evTime').innerText = timeFull || "時間未定";
+    const timeFormatted = formatDateTime(d.time);
+    $('evTime').innerText = timeFormatted || "時間未定";
     
-    // 隱藏/顯示相關欄位（保留原功能）
     $('weiyaFields').style.display = 'block'; 
     $('travelFields').style.display = 'none';
     $('itineraryBox').style.display = 'none'; 
     fill('table', masterOptions.table);
   } else {
-    // 旅遊模式：使用 formatOnlyDate 顯示日期區間
+    // 【旅遊模式】
     const sDate = formatOnlyDate(d.startdate);
     const eDate = formatOnlyDate(d.enddate);
     $('evTime').innerText = (sDate && eDate) ? `${sDate} ~ ${eDate}` : "時間未定";

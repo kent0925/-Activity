@@ -147,24 +147,25 @@ function formatOnlyDate(val) {
 // 聚會用：修正時區偏移與順序 2026/02/05 (四) 15:00
 function formatDateTime(val) {
   if (!val || val === 'undefined') return '';
-  
-  // 修正解析：若日期包含 T 或是標準日期字串，確保以當地時區解析
   let d = new Date(val);
-  
-  // 針對 GAS 傳出的特定字串格式若導致 8 小時時差，進行校正 (若顯示 08:00 而非 15:00)
-  // 此處使用 getTimezoneOffset 自動偵測或是直接格式化
   if (isNaN(d.getTime())) return val;
 
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const date = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-
   const days = ['日', '一', '二', '三', '四', '五', '六'];
   const dayName = `(${days[d.getDay()]})`;
 
-  return `${y}/${m}/${date} ${dayName} ${hh}:${mm}`;
+  // 直接從原始字串中擷取時間部分 (例如 "15:00")，避開時區轉換
+  // 假設 val 格式為 "2026/02/05 15:00:00"
+  let timePart = "";
+  if (val.includes(' ')) {
+    timePart = val.split(' ')[1].substring(0, 5); // 取得 "15:00"
+  } else {
+    timePart = String(d.getHours()).padStart(2, '0') + ":" + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  return `${y}/${m}/${date} ${dayName} ${timePart}`;
 }
 
 function toggleItinerary() {

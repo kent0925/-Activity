@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="format-detection" content="address=no">
-<title>旅遊 / 尾牙 報名系統</title>
+<title>旅遊 / 餐會 報名系統</title>
 <style>
   body { font-family: "Microsoft JhengHei", sans-serif; margin:15px; background:#f0f2f5; color: #333; }
   .container { max-width:500px; margin:auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
@@ -55,7 +55,7 @@
 <body>
 
 <div class="container">
-  <h2>旅遊 / 尾牙 報名系統</h2>
+  <h2>旅遊 / 餐會 報名系統</h2>
   <label>選擇活動：</label>
   <div id="eventGrid" class="event-grid">
     <p style="grid-column: span 2; text-align: center; color: #1a73e8; padding: 10px;">🚀 載入中...</p>
@@ -211,6 +211,7 @@ function renderEventCards() {
   });
 }
 
+// 修復時間顯示邏輯與房型不鎖死
 $('eventSelect').onchange = async () => {
   const sel = $('eventSelect');
   const o = sel.selectedOptions[0];
@@ -252,6 +253,7 @@ $('eventSelect').onchange = async () => {
     $('travelFields').style.display = 'none';
     $('itineraryBox').style.display = 'none'; 
     fill('table', masterOptions.table);
+    // 尾牙時間顯示
     $('evTime').innerText = `${formatOnlyDate(d.time)} ${getDayOfWeek(d.time)}`;
   } else {
     $('travelFields').style.display = 'block'; 
@@ -267,17 +269,19 @@ $('eventSelect').onchange = async () => {
 
     const rSel = $('room');
     rSel.innerHTML = '<option value="">-- 請選擇房型 --</option>';
-    // 修改：併房增加提示
     rSel.add(new Option("我要併房 (費用另計)", "我要併房"));
     masterOptions.room.forEach(i => {
       const used = users.reduce((acc, u) => (u.room && u.room.startsWith(i.name)) ? acc + 1 : acc, 0);
       const total = parseInt(i.totalCount) || 0;
       const rem = total - used;
-      // 修改：不使用 opt.disabled，僅變更顯示文字
+      // 房型不鎖死：滿額時文字提醒，但仍可點選
       const label = rem > 0 ? `${i.name} / ${i.price}元 / 剩${rem}間` : `${i.name} (已滿，待規劃)`;
       rSel.add(new Option(label, i.name));
     });
-    $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
+    // 旅遊時間顯示（修正 dataset 屬性名稱）
+    const sDate = formatOnlyDate(d.startdate);
+    const eDate = formatOnlyDate(d.enddate);
+    $('evTime').innerText = (sDate && eDate) ? `${sDate} ~ ${eDate}` : "時間載入中...";
     renderItinerary();
   }
 

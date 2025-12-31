@@ -211,7 +211,6 @@ function renderEventCards() {
   });
 }
 
-// 修復時間顯示邏輯與房型不鎖死
 $('eventSelect').onchange = async () => {
   const sel = $('eventSelect');
   const o = sel.selectedOptions[0];
@@ -234,6 +233,7 @@ $('eventSelect').onchange = async () => {
   $('evStore').innerText = d.store; 
   $('evAddress').innerText = d.address;
 
+  // 獲取即時統計資料
   const curStats = await callApi('queryStats', `&eventId=${o.value}`);
   const users = curStats.users || [];
 
@@ -249,13 +249,20 @@ $('eventSelect').onchange = async () => {
   fill('people', masterOptions.people);
 
   if (isW) {
+    // 聚會(尾牙)：顯示 E 欄時間 (d.time)
+    const timeE = formatOnlyDate(d.time);
+    $('evTime').innerText = timeE ? `${timeE} ${getDayOfWeek(d.time)}` : "未定";
+    
     $('weiyaFields').style.display = 'block'; 
     $('travelFields').style.display = 'none';
     $('itineraryBox').style.display = 'none'; 
     fill('table', masterOptions.table);
-    // 尾牙時間顯示
-    $('evTime').innerText = `${formatOnlyDate(d.time)} ${getDayOfWeek(d.time)}`;
   } else {
+    // 旅遊：顯示 F/G 欄時間 (d.startdate ~ d.enddate)
+    const sDate = formatOnlyDate(d.startdate);
+    const eDate = formatOnlyDate(d.enddate);
+    $('evTime').innerText = (sDate && eDate) ? `${sDate} ~ ${eDate}` : "未定";
+
     $('travelFields').style.display = 'block'; 
     $('weiyaFields').style.display = 'none';
     
@@ -274,14 +281,9 @@ $('eventSelect').onchange = async () => {
       const used = users.reduce((acc, u) => (u.room && u.room.startsWith(i.name)) ? acc + 1 : acc, 0);
       const total = parseInt(i.totalCount) || 0;
       const rem = total - used;
-      // 房型不鎖死：滿額時文字提醒，但仍可點選
       const label = rem > 0 ? `${i.name} / ${i.price}元 / 剩${rem}間` : `${i.name} (已滿，待規劃)`;
       rSel.add(new Option(label, i.name));
     });
-    // 旅遊時間顯示（修正 dataset 屬性名稱）
-    const sDate = formatOnlyDate(d.startdate);
-    const eDate = formatOnlyDate(d.enddate);
-    $('evTime').innerText = (sDate && eDate) ? `${sDate} ~ ${eDate}` : "時間載入中...";
     renderItinerary();
   }
 

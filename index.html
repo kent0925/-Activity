@@ -148,12 +148,22 @@ function formatDateTime(val) {
   if (!val || val === 'undefined') return '';
   const d = new Date(val);
   if (isNaN(d.getTime())) return val;
+
+  // 格式化日期部分：YYYY/MM/DD
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const date = String(d.getDate()).padStart(2, '0');
+  
+  // 格式化時間部分：HH:MM
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${y}/${m}/${date} ${hh}:${mm}`;
+
+  // 取得星期幾
+  const days = ['日', '一', '二', '三', '四', '五', '六'];
+  const dayName = `(${days[d.getDay()]})`;
+
+  // 回傳目標格式：2026/02/05 (四) 15:00
+  return `${y}/${m}/${date} ${dayName} ${hh}:${mm}`;
 }
 
 function toggleItinerary() {
@@ -262,11 +272,13 @@ $('eventSelect').onchange = async () => {
   };
   fill('people', masterOptions.people);
 
-  if (isW) {
-    // 聚會模式：使用 formatDateTime 顯示時間
+if (isW) {
+    // 【聚會模式】
+    // 直接呼叫修正後的 formatDateTime，它會回傳 "2026/02/05 (四) 15:00"
     const timeFull = formatDateTime(d.time);
-    $('evTime').innerText = timeFull ? `${timeFull} ${getDayOfWeek(d.time)}` : "時間未定";
+    $('evTime').innerText = timeFull || "時間未定";
     
+    // 隱藏/顯示相關欄位（保留原功能）
     $('weiyaFields').style.display = 'block'; 
     $('travelFields').style.display = 'none';
     $('itineraryBox').style.display = 'none'; 

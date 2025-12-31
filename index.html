@@ -95,7 +95,7 @@
     <label>🎁 贊助項目管理：</label>
     <div id="sponsorContainer"></div>
     <button type="button" class="add-sponsor-btn" id="addSponsorBtn">➕ 新增贊助項目</button>
-    <label style="margin-top:20px;">備註：<textarea id="memo" rows="2" placeholder="特殊食性或備註"></textarea></label>
+    <label style="margin-top:20px;">備註：<textarea id="memo" rows="2" placeholder="特殊食性、房型候補或併房需求說明"></textarea></label>
     <div class="btn-group">
       <button type="submit" id="subBtn">送出報名</button>
       <button type="button" id="cancelBtn" class="delete-btn" style="display:none;">❌ 取消報名</button>
@@ -114,33 +114,43 @@ const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
 
-// --- 功能性函式 ---
 function openOfficialSite() {
-  const o = $('eventSelect').selectedOptions[0].dataset;
+  const sel = $('eventSelect').selectedOptions[0];
+  if (!sel) return;
+  const o = sel.dataset;
   if (o.officialsite && o.officialsite !== "undefined" && o.officialsite.trim() !== "") window.open(o.officialsite, '_blank');
   else alert("此地點暫無官網資料");
 }
+
 function openGoogleMap() {
-  const o = $('eventSelect').selectedOptions[0].dataset;
+  const sel = $('eventSelect').selectedOptions[0];
+  if (!sel) return;
+  const o = sel.dataset;
   const query = encodeURIComponent(`${o.store} ${o.address}`);
   window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
 }
+
 function getDayOfWeek(dateStr) {
   const days = ['日', '一', '二', '三', '四', '五', '六'];
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? '' : `(${days[d.getDay()]})`;
 }
+
 function formatOnlyDate(val) {
   if (!val || val === 'undefined') return '';
   const d = new Date(val);
   return isNaN(d.getTime()) ? val : `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
+
 function toggleItinerary() {
-  const c = $('itineraryContent'); c.style.display = c.style.display === 'block' ? 'none' : 'block';
+  const c = $('itineraryContent'); 
+  c.style.display = c.style.display === 'block' ? 'none' : 'block';
   $('arrow').innerText = c.style.display === 'block' ? '－' : '＋';
 }
+
 function toggleDay(el) {
-  const c = el.nextElementSibling; c.style.display = c.style.display === 'block' ? 'none' : 'block';
+  const c = el.nextElementSibling; 
+  c.style.display = c.style.display === 'block' ? 'none' : 'block';
   el.querySelector('.day-arrow').innerText = c.style.display === 'block' ? '－' : '＋';
 }
 
@@ -151,7 +161,6 @@ async function callApi(action, extra = '') {
   } catch (e) { return []; }
 }
 
-// --- 初始化 (核心優化) ---
 async function init(){
   try {
     await liff.init({ liffId: LIFF_ID });
@@ -160,7 +169,6 @@ async function init(){
     $('userName').value = $('userNameShow').value = p.displayName; 
     $('userId').value = p.userId;
     
-    // 一次性取得所有資料
     const res = await callApi('getInitData'); 
     masterOptions = res.options;
     masterOptions.itinerary = res.itinerary;
@@ -196,56 +204,102 @@ function renderEventCards() {
     card.onclick = () => {
       document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      sel.value = opt.value; sel.onchange();
+      sel.value = opt.value; 
+      sel.dispatchEvent(new Event('change'));
     };
     grid.appendChild(card);
   });
 }
 
 $('eventSelect').onchange = async () => {
-  const o = $('eventSelect').selectedOptions[0];
+  const sel = $('eventSelect');
+  const o = sel.selectedOptions[0];
   if(!o || !o.value) return;
-  const d = o.dataset, isW = d.type === '尾牙', joined = d.joined === 'true';
+
+  $('regForm').style.display = 'none';
+  $('eventInfo').style.display = 'none';
+  $('stats').style.display = 'none';
+  $('pickupMapLink').style.display = 'none';
+  $('sponsorContainer').innerHTML = '';
+  $('itineraryContent').style.display = 'none';
+  $('arrow').innerText = '＋';
+
+  const d = o.dataset;
+  const isW = d.type === '尾牙';
+  const joined = d.joined === 'true';
+
+  $('evTitle').innerText = d.title; 
+  $('evHost').innerText = d.host;
+  $('evStore').innerText = d.store; 
+  $('evAddress').innerText = d.address;
+
   const curStats = await callApi('queryStats', `&eventId=${o.value}`);
   const users = curStats.users || [];
 
   $('subBtn').innerText = joined ? '編輯報名' : '送出報名';
+  $('subBtn').disabled = false;
   $('cancelBtn').style.display = joined ? 'block' : 'none';
-  const fill = (id, list) => { $(id).innerHTML = ''; list.forEach(x => $(id).add(new Option(x, x))); };
+
+  const fill = (id, list) => { 
+    const target = $(id);
+    target.innerHTML = ''; 
+    list.forEach(x => target.add(new Option(x, x))); 
+  };
   fill('people', masterOptions.people);
 
   if (isW) {
-    $('weiyaFields').style.display = 'block'; $('travelFields').style.display = 'none';
-    $('itineraryBox').style.display = 'none'; fill('table', masterOptions.table);
+    $('weiyaFields').style.display = 'block'; 
+    $('travelFields').style.display = 'none';
+    $('itineraryBox').style.display = 'none'; 
+    fill('table', masterOptions.table);
     $('evTime').innerText = `${formatOnlyDate(d.time)} ${getDayOfWeek(d.time)}`;
   } else {
-    $('travelFields').style.display = 'block'; $('weiyaFields').style.display = 'none';
-    const pSel = $('pickup'); pSel.innerHTML = '<option value="">-- 請選擇上車點 --</option>';
-    masterOptions.pickup.forEach(i => { const opt = new Option(i.name, i.name); opt.dataset.mapurl = i.info; pSel.add(opt); });
-    const rSel = $('room'); rSel.innerHTML = '<option value="">-- 請選擇房型 --</option>';
-    rSel.add(new Option("我要併房", "我要併房"));
+    $('travelFields').style.display = 'block'; 
+    $('weiyaFields').style.display = 'none';
+    
+    const pSel = $('pickup');
+    pSel.innerHTML = '<option value="">-- 請選擇上車點 --</option>';
+    masterOptions.pickup.forEach(i => { 
+      const opt = new Option(i.name, i.name); 
+      opt.dataset.mapurl = i.info; 
+      pSel.add(opt); 
+    });
+
+    const rSel = $('room');
+    rSel.innerHTML = '<option value="">-- 請選擇房型 --</option>';
+    // 修改：併房增加提示
+    rSel.add(new Option("我要併房 (費用另計)", "我要併房"));
     masterOptions.room.forEach(i => {
       const used = users.reduce((acc, u) => (u.room && u.room.startsWith(i.name)) ? acc + 1 : acc, 0);
-      const rem = (parseInt(i.totalCount) || 0) - used;
-      const opt = new Option(`${i.name} / ${i.price}元 / 剩${rem}間`, i.name);
-      if (rem <= 0) { opt.disabled = true; opt.text = `${i.name} (滿)`; }
-      rSel.add(opt);
+      const total = parseInt(i.totalCount) || 0;
+      const rem = total - used;
+      // 修改：不使用 opt.disabled，僅變更顯示文字
+      const label = rem > 0 ? `${i.name} / ${i.price}元 / 剩${rem}間` : `${i.name} (已滿，待規劃)`;
+      rSel.add(new Option(label, i.name));
     });
     $('evTime').innerText = `${formatOnlyDate(d.startdate)} ~ ${formatOnlyDate(d.enddate)}`;
     renderItinerary();
   }
-  $('evTitle').innerText = d.title; $('evHost').innerText = d.host;
-  $('evStore').innerText = d.store; $('evAddress').innerText = d.address;
+
+  createSponsorRow(); 
   $('regForm').style.display = $('eventInfo').style.display = 'block';
-  $('sponsorContainer').innerHTML = ''; createSponsorRow(); renderStatsView(curStats, d.type);
+  renderStatsView(curStats, d.type);
 };
 
 function updatePickupMap() {
   const opt = $('pickup').selectedOptions[0];
-  if (opt && opt.value && opt.dataset.mapurl) { $('locLabel').innerText = opt.value; $('pickupMapLink').style.display = 'block'; }
-  else { $('pickupMapLink').style.display = 'none'; }
+  if (opt && opt.value && opt.dataset.mapurl) { 
+    $('locLabel').innerText = opt.value; 
+    $('pickupMapLink').style.display = 'block'; 
+  } else { 
+    $('pickupMapLink').style.display = 'none'; 
+  }
 }
-function openPickupMap() { const url = $('pickup').selectedOptions[0].dataset.mapurl; if (url) window.open(url, '_blank'); }
+
+function openPickupMap() { 
+  const url = $('pickup').selectedOptions[0].dataset.mapurl; 
+  if (url) window.open(url, '_blank'); 
+}
 
 function renderStatsView(data, type) {
   const users = data.users || [];
@@ -254,15 +308,20 @@ function renderStatsView(data, type) {
   users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人) [${type === '旅遊' ? u.pickup : u.table + '桌'}]</div>`);
   $('uDetail').innerHTML = uHtml;
   let spHtml = `<hr><strong>🎁 贊助彙整：</strong><br>`;
-  if(data.sponsor && Object.keys(data.sponsor).length > 0) for (let k in data.sponsor) spHtml += `• ${k}: ${data.sponsor[k]}<br>`;
-  else spHtml += '暫無贊助';
-  $('sStats').innerHTML = spHtml; $('stats').style.display = 'block';
+  if(data.sponsor && Object.keys(data.sponsor).length > 0) {
+    for (let k in data.sponsor) spHtml += `• ${k}: ${data.sponsor[k]}<br>`;
+  } else {
+    spHtml += '暫無贊助';
+  }
+  $('sStats').innerHTML = spHtml; 
+  $('stats').style.display = 'block';
 }
 
 function renderItinerary() {
   const list = masterOptions.itinerary;
   if (!list || list.length === 0) { $('itineraryBox').style.display = 'none'; return; }
-  const container = $('itineraryContent'); container.innerHTML = ''; 
+  const container = $('itineraryContent'); 
+  container.innerHTML = ''; 
   const days = [...new Set(list.map(i => i.day))].sort((a, b) => a - b);
   days.forEach((day, idx) => {
     const div = document.createElement('div'); div.className = 'day-section';
@@ -276,6 +335,7 @@ function renderItinerary() {
 }
 
 $('addSponsorBtn').onclick = createSponsorRow;
+
 function createSponsorRow() {
   const rowId = 'spRow_' + Date.now();
   const div = document.createElement('div'); div.className = 'sponsor-item'; div.id = rowId;
@@ -289,7 +349,9 @@ function createSponsorRow() {
       <div class="moneyGrp" style="display:none;"><input type="number" class="mVal" value="500"> <span>元</span></div>
     </div>`;
   $('sponsorContainer').appendChild(div);
-  const sel = div.querySelector('.sponsor-select'); sel.add(new Option("-- 請選擇 --", "")); sel.add(new Option("無", "無"));
+  const sel = div.querySelector('.sponsor-select'); 
+  sel.add(new Option("-- 請選擇 --", "")); 
+  sel.add(new Option("無", "無"));
   masterOptions.sponsor.filter(s => s !== "無").forEach(s => sel.add(new Option(s, s)));
 }
 
@@ -306,25 +368,55 @@ function handleSponsorChange(id) {
   }
   checkSponsorAddButton();
 }
-function handleQtyChange(id) { $(id).querySelector('.custom-qty-grp').style.display = ($(id).querySelector('.qtySelect').value === '自定義數量') ? 'flex' : 'none'; }
-function validateCustomQty(id) { const r = $(id), u = r.querySelector('.cUnit').value, i = r.querySelector('.cQty'); if (u === '瓶' && i.value < 5) i.value = 5; if (u === '箱' && i.value < 4) i.value = 4; }
-function removeRow(id) { $(id).remove(); checkSponsorAddButton(); if ($('sponsorContainer').children.length === 0) createSponsorRow(); }
-function checkSponsorAddButton() { const s = document.querySelectorAll('.sponsor-select'); $('addSponsorBtn').style.display = (s[s.length - 1]?.value && s[s.length - 1]?.value !== '無') ? 'block' : 'none'; }
+
+function handleQtyChange(id) { 
+  $(id).querySelector('.custom-qty-grp').style.display = ($(id).querySelector('.qtySelect').value === '自定義數量') ? 'flex' : 'none'; 
+}
+
+function validateCustomQty(id) { 
+  const r = $(id), u = r.querySelector('.cUnit').value, i = r.querySelector('.cQty'); 
+  if (u === '瓶' && i.value < 5) i.value = 5; 
+  if (u === '箱' && i.value < 4) i.value = 4; 
+}
+
+function removeRow(id) { 
+  $(id).remove(); 
+  checkSponsorAddButton(); 
+  if ($('sponsorContainer').children.length === 0) createSponsorRow(); 
+}
+
+function checkSponsorAddButton() { 
+  const s = document.querySelectorAll('.sponsor-select'); 
+  $('addSponsorBtn').style.display = (s[s.length - 1]?.value && s[s.length - 1]?.value !== '無') ? 'block' : 'none'; 
+}
 
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   const o = $('eventSelect').selectedOptions[0].dataset;
+  if (o.type === '旅遊') {
+    if (!$('pickup').value) return alert("請選擇上車地點");
+    if (!$('room').value) return alert("請選擇房型");
+  }
+
   const sponsorList = [];
   document.querySelectorAll('.sponsor-item').forEach(r => {
     const n = r.querySelector('.sponsor-select').value; if(!n || n === '無') return;
-    if (n === '其他') { if(r.querySelector('.otherInput').value) sponsorList.push(r.querySelector('.otherInput').value); }
-    else if (n === '紅包') { sponsorList.push(`紅包(${r.querySelector('.mVal').value}元)`); }
+    if (n === '其他') { 
+      const val = r.querySelector('.otherInput').value;
+      if(val) sponsorList.push(val); 
+    }
+    else if (n === '紅包') { 
+      sponsorList.push(`紅包(${r.querySelector('.mVal').value}元)`); 
+    }
     else {
       const q = r.querySelector('.qtySelect').value;
       sponsorList.push(q === '自定義數量' ? `${n}(${r.querySelector('.cQty').value}${r.querySelector('.cUnit').value})` : `${n}(${q})`);
     }
   });
+
   $('subBtn').disabled = true;
+  $('subBtn').innerText = "處理中...";
+
   const p = {
     eventId: o.eventid, eventType: o.type, userId: $('userId').value, userName: $('userName').value,
     people: $('people').value, table: o.type === '尾牙' ? $('table').value : '',
@@ -332,15 +424,24 @@ $('regForm').onsubmit = async (e) => {
     room: o.type === '旅遊' ? ($('room').value === '我要併房' ? '我要併房' : `${$('room').value} (1間)`) : '',
     sponsor: sponsorList.join(', ') || '無', memo: $('memo').value
   };
-  const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(p))}`);
-  alert(r.message); location.reload();
+
+  try {
+    const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(p))}`);
+    alert(r.message); 
+    location.reload();
+  } catch (err) {
+    alert("送出失敗");
+    $('subBtn').disabled = false;
+    $('subBtn').innerText = "送出報名";
+  }
 };
 
 $('cancelBtn').onclick = async () => {
-  if (!confirm("確定要取消嗎？")) return;
+  if (!confirm("確定要取消報名嗎？")) return;
   const o = $('eventSelect').selectedOptions[0].dataset;
   const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ eventId: o.eventid, userId: $('userId').value }))}`);
-  alert(r.message); location.reload();
+  alert(r.message); 
+  location.reload();
 };
 
 window.onload = init;

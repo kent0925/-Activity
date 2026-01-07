@@ -51,14 +51,12 @@
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .map-link-btn { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; padding: 10px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: center; margin-top: 10px; font-weight: bold; }
 
-  /* 修改：來賓卡片樣式與加大箭頭 */
   .guest-card { border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 15px; background: #fff; overflow: hidden; }
   .guest-header { background: #f8f9fa; padding: 10px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #eee; }
   .guest-body { padding: 15px; display: block; }
   .guest-del { color: #ff4d4d; font-size: 13px; cursor: pointer; text-decoration: underline; }
   .btn-add-guest { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 15px; font-size: 14px; width: 100%; font-weight: bold; display: none; }
   
-  /* 加大收縮符號樣式 */
   .g-arrow, #arrow, .day-arrow { 
     font-size: 24px; 
     font-weight: 900; 
@@ -67,6 +65,20 @@
     display: inline-block; 
     color: #1a73e8;
   }
+
+  /* 新增：複製名單按鈕樣式 */
+  .copy-btn {
+    float: right;
+    background: #fff;
+    color: #1a73e8;
+    border: 1px solid #1a73e8;
+    padding: 2px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: -3px;
+  }
+  .copy-btn:active { background: #e8f0fe; }
 </style>
 </head>
 <body>
@@ -127,7 +139,9 @@
   </form>
 
   <div id="stats">
-    <div id="uStats"></div><div id="uDetail" style="margin-bottom:15px;"></div><div id="sStats"></div>
+    <div id="uStats"></div>
+    <div id="uDetail" style="margin-bottom:15px;"></div>
+    <div id="sStats"></div>
   </div>
 </div>
 
@@ -137,6 +151,35 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwTgTtVmzAoZrW3zp0Eqq5W
 const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
+
+// 全域存儲目前名單與活動資訊，供複製使用
+let CURRENT_STATS_DATA = { users: [], eventInfo: {}, type: "" };
+
+// --- 複製功能 ---
+function copyToClipboard() {
+  if (CURRENT_STATS_DATA.users.length === 0) {
+    alert("目前尚無報名資料可複製");
+    return;
+  }
+  const info = CURRENT_STATS_DATA.eventInfo;
+  let text = `【${info.title}】\n👤 主辦：${info.host}\n📅 時間：${$('evTime').innerText}\n📍 地點：${info.store}\n------------------\n`;
+  
+  CURRENT_STATS_DATA.users.forEach((u, i) => {
+    const detail = CURRENT_STATS_DATA.type === '旅遊' ? u.pickup : (u.table || 0) + '桌';
+    text += `${i + 1}. ${u.userName} (${u.people}人) [${detail}]\n`;
+  });
+  
+  const total = CURRENT_STATS_DATA.users.reduce((s, u) => s + (parseInt(u.people) || 0), 0);
+  text += `------------------\n📊 總計：${total} 人\n🔗 報名：https://liff.line.me/${LIFF_ID}`;
+
+  const el = document.createElement('textarea');
+  el.value = text;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  alert("✅ 報名名單已複製到剪貼簿！");
+}
 
 // --- 功能函數 ---
 function openOfficialSite() {
@@ -252,13 +295,16 @@ $('eventSelect').onchange = async () => {
   const isW = (d.type === '尾牙' || d.type === '聚會' || d.type === '餐會');
   const isTravel = (d.type === '旅遊');
 
-  // 【需求修改】餐會不顯示新增來賓按鈕
   $('addGuestBtn').style.display = isTravel ? 'block' : 'none';
 
   $('evTitle').innerText = d.title; 
   $('evHost').innerText = d.host;
   $('evStore').innerText = d.store; 
   $('evAddress').innerText = d.address;
+
+  // 紀錄目前活動資訊
+  CURRENT_STATS_DATA.eventInfo = { title: d.title, host: d.host, store: d.store };
+  CURRENT_STATS_DATA.type = d.type;
 
   const curStats = await callApi('queryStats', `&eventId=${o.value}`);
   const users = curStats.users || [];
@@ -314,7 +360,6 @@ $('eventSelect').onchange = async () => {
 
 // --- 來賓管理邏輯 (含防呆檢查) ---
 $('addGuestBtn').onclick = () => {
-  // 【需求修改】檢查：如果還有來賓姓名沒填，不准新增下一個
   const guestInputs = document.querySelectorAll('.g-name');
   for (let input of guestInputs) {
     if (input.value.trim() === "") {
@@ -380,10 +425,13 @@ function openPickupMap() {
   const url = $('pickup').selectedOptions[0].dataset.mapurl; 
   if (url) window.open(url, '_blank'); 
 }
+
 function renderStatsView(data, type) {
   const users = data.users || [];
+  CURRENT_STATS_DATA.users = users; // 儲存供複製使用
+  
   $('uStats').innerHTML = `<strong>👤 總報名：${users.reduce((s, u) => s + (parseInt(u.people) || 0), 0)} 人</strong>`;
-  let uHtml = '<hr><strong>📝 報名名單：</strong>';
+  let uHtml = `<hr><strong>📝 報名名單：</strong><button class="copy-btn" onclick="copyToClipboard()">📋 複製</button>`;
   users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人) [${type === '旅遊' ? u.pickup : (u.table || 0) + '桌'}]</div>`);
   $('uDetail').innerHTML = uHtml;
   let spHtml = `<hr><strong>🎁 贊助彙整：</strong><br>`;

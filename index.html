@@ -66,19 +66,19 @@
     color: #1a73e8;
   }
 
-  /* 新增：複製名單按鈕樣式 */
+  /* 複製按鈕樣式 */
   .copy-btn {
     float: right;
     background: #fff;
-    color: #1a73e8;
-    border: 1px solid #1a73e8;
+    color: #4CAF50;
+    border: 1px solid #4CAF50;
     padding: 2px 8px;
     font-size: 12px;
     border-radius: 4px;
     cursor: pointer;
-    margin-top: -3px;
+    font-weight: bold;
   }
-  .copy-btn:active { background: #e8f0fe; }
+  .copy-btn:active { background: #e8f5e9; }
 </style>
 </head>
 <body>
@@ -428,12 +428,18 @@ function openPickupMap() {
 
 function renderStatsView(data, type) {
   const users = data.users || [];
-  CURRENT_STATS_DATA.users = users; // 儲存供複製使用
+  CURRENT_STATS_DATA.users = users; 
   
-  $('uStats').innerHTML = `<strong>👤 總報名：${users.reduce((s, u) => s + (parseInt(u.people) || 0), 0)} 人</strong>`;
-  let uHtml = `<hr><strong>📝 報名名單：</strong><button class="copy-btn" onclick="copyToClipboard()">📋 複製</button>`;
+  const totalPeople = users.reduce((s, u) => s + (parseInt(u.people) || 0), 0);
+  
+  // 將複製按鈕移動到「總報名」旁邊
+  $('uStats').innerHTML = `<button class="copy-btn" onclick="copyToClipboard()">📋 複製名單</button>
+                           <strong>👤 總報名：${totalPeople} 人</strong>`;
+  
+  let uHtml = `<hr><strong>📝 報名名單：</strong>`;
   users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人) [${type === '旅遊' ? u.pickup : (u.table || 0) + '桌'}]</div>`);
   $('uDetail').innerHTML = uHtml;
+  
   let spHtml = `<hr><strong>🎁 贊助彙整：</strong><br>`;
   if(data.sponsor && Object.keys(data.sponsor).length > 0) {
     for (let k in data.sponsor) spHtml += `• ${k}: ${data.sponsor[k]}<br>`;
@@ -441,6 +447,7 @@ function renderStatsView(data, type) {
   $('sStats').innerHTML = spHtml; 
   $('stats').style.display = 'block';
 }
+
 function renderItinerary() {
   const list = masterOptions.itinerary;
   if (!list || list.length === 0) { $('itineraryBox').style.display = 'none'; return; }

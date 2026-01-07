@@ -51,12 +51,22 @@
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .map-link-btn { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; padding: 10px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: center; margin-top: 10px; font-weight: bold; }
 
-  /* 新增：來賓卡片樣式 */
+  /* 修改：來賓卡片樣式與加大箭頭 */
   .guest-card { border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 15px; background: #fff; overflow: hidden; }
   .guest-header { background: #f8f9fa; padding: 10px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #eee; }
   .guest-body { padding: 15px; display: block; }
   .guest-del { color: #ff4d4d; font-size: 13px; cursor: pointer; text-decoration: underline; }
-  .btn-add-guest { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 15px; font-size: 14px; width: 100%; font-weight: bold; }
+  .btn-add-guest { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 15px; font-size: 14px; width: 100%; font-weight: bold; display: none; }
+  
+  /* 加大收縮符號樣式 */
+  .g-arrow, #arrow, .day-arrow { 
+    font-size: 24px; 
+    font-weight: 900; 
+    line-height: 1; 
+    margin-left: 10px; 
+    display: inline-block; 
+    color: #1a73e8;
+  }
 </style>
 </head>
 <body>
@@ -128,7 +138,7 @@ const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
 
-// --- 原始功能函數 (保留不變) ---
+// --- 功能函數 ---
 function openOfficialSite() {
   const sel = $('eventSelect').selectedOptions[0];
   if (!sel) return;
@@ -178,7 +188,6 @@ async function callApi(action, extra = '') {
   } catch (e) { return []; }
 }
 
-// --- 初始化與選單邏輯 ---
 async function init(){
   try {
     await liff.init({ liffId: LIFF_ID });
@@ -236,12 +245,15 @@ $('eventSelect').onchange = async () => {
   $('pickupMapLink').style.display = 'none';
   $('sponsorContainer').innerHTML = '';
   $('itineraryContent').style.display = 'none';
-  $('guestContainer').innerHTML = ''; // 清空來賓
+  $('guestContainer').innerHTML = ''; 
   $('arrow').innerText = '＋';
 
   const d = o.dataset;
   const isW = (d.type === '尾牙' || d.type === '聚會' || d.type === '餐會');
-  const joined = d.joined === 'true';
+  const isTravel = (d.type === '旅遊');
+
+  // 【需求修改】餐會不顯示新增來賓按鈕
+  $('addGuestBtn').style.display = isTravel ? 'block' : 'none';
 
   $('evTitle').innerText = d.title; 
   $('evHost').innerText = d.host;
@@ -250,6 +262,7 @@ $('eventSelect').onchange = async () => {
 
   const curStats = await callApi('queryStats', `&eventId=${o.value}`);
   const users = curStats.users || [];
+  const joined = (d.joined === 'true');
 
   $('subBtn').innerText = joined ? '編輯報名' : '送出報名';
   $('subBtn').disabled = false;
@@ -299,8 +312,18 @@ $('eventSelect').onchange = async () => {
   renderStatsView(curStats, d.type);
 };
 
-// --- 新增：來賓管理邏輯 ---
+// --- 來賓管理邏輯 (含防呆檢查) ---
 $('addGuestBtn').onclick = () => {
+  // 【需求修改】檢查：如果還有來賓姓名沒填，不准新增下一個
+  const guestInputs = document.querySelectorAll('.g-name');
+  for (let input of guestInputs) {
+    if (input.value.trim() === "") {
+      alert("請先填寫完目前來賓的姓名，再新增下一位！");
+      input.focus();
+      return;
+    }
+  }
+
   const gid = 'guest_' + Date.now();
   const isTravel = $('travelFields').style.display === 'block';
   
@@ -312,7 +335,7 @@ $('addGuestBtn').onclick = () => {
       <span>👤 來賓：<span class="g-name-lbl">新來賓</span></span>
       <div>
         <span class="guest-del" onclick="removeGuest('${gid}', event)">刪除</span>
-        <span class="g-arrow" style="margin-left:10px;">－</span>
+        <span class="g-arrow">－</span>
       </div>
     </div>
     <div class="guest-body">
@@ -345,7 +368,7 @@ function removeGuest(id, e) {
   if(confirm("確定要移除這位來賓嗎？")) $(id).remove();
 }
 
-// --- 贊助與地圖邏輯 (保留不變) ---
+// --- 其他輔助邏輯 ---
 function updatePickupMap() {
   const opt = $('pickup').selectedOptions[0];
   if (opt && opt.value && opt.dataset.mapurl) { 
@@ -361,7 +384,7 @@ function renderStatsView(data, type) {
   const users = data.users || [];
   $('uStats').innerHTML = `<strong>👤 總報名：${users.reduce((s, u) => s + (parseInt(u.people) || 0), 0)} 人</strong>`;
   let uHtml = '<hr><strong>📝 報名名單：</strong>';
-  users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人) [${type === '旅遊' ? u.pickup : u.table + '桌'}]</div>`);
+  users.forEach(u => uHtml += `<div class="user-list-item">${u.userName} (${u.people}人) [${type === '旅遊' ? u.pickup : (u.table || 0) + '桌'}]</div>`);
   $('uDetail').innerHTML = uHtml;
   let spHtml = `<hr><strong>🎁 贊助彙整：</strong><br>`;
   if(data.sponsor && Object.keys(data.sponsor).length > 0) {
@@ -437,19 +460,16 @@ function checkSponsorAddButton() {
   $('addSponsorBtn').style.display = (s[s.length - 1]?.value && s[s.length - 1]?.value !== '無') ? 'block' : 'none'; 
 }
 
-// --- 提交邏輯 (修改以包含來賓資料) ---
-// --- 修改後的提交邏輯：本人與來賓分開寫入以佔用房量 ---
+// --- 提交與取消邏輯 ---
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   const o = $('eventSelect').selectedOptions[0].dataset;
   
-  // 基礎驗證
   if (o.type === '旅遊') {
     if (!$('pickup').value) return alert("請選擇本人的上車地點");
     if (!$('room').value) return alert("請選擇本人的房型");
   }
 
-  // 1. 收集贊助清單 (僅限本人)
   const sponsorList = [];
   document.querySelectorAll('.sponsor-item').forEach(r => {
     const n = r.querySelector('.sponsor-select').value; if(!n || n === '無') return;
@@ -464,10 +484,7 @@ $('regForm').onsubmit = async (e) => {
     }
   });
 
-  // 2. 建立待提交隊列 (本人 + 來賓)
   const queue = [];
-  
-  // A. 本人資料
   queue.push({
     eventId: o.eventid,
     eventType: o.type,
@@ -481,7 +498,6 @@ $('regForm').onsubmit = async (e) => {
     memo: $('memo').value
   });
 
-  // B. 來賓資料 (遍歷所有來賓卡片)
   document.querySelectorAll('.guest-card').forEach((c, index) => {
     const gName = c.querySelector('.g-name').value;
     const gRoom = c.querySelector('.g-room').value;
@@ -490,7 +506,7 @@ $('regForm').onsubmit = async (e) => {
     queue.push({
       eventId: o.eventid,
       eventType: o.type,
-      userId: $('userId').value + "_guest_" + index, // 賦予虛擬ID
+      userId: $('userId').value + "_guest_" + index,
       userName: gName + " (來賓)",
       people: c.querySelector('.g-people').value,
       table: (o.type === '尾牙' || o.type === '聚會' || o.type === '餐會') ? $('table').value : '',
@@ -504,45 +520,33 @@ $('regForm').onsubmit = async (e) => {
   $('subBtn').disabled = true;
   $('subBtn').innerText = "處理中...";
 
-  // 3. 依序執行 API 呼叫
   try {
     let successCount = 0;
     for (const payload of queue) {
       const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
       if (r.status === "success") successCount++;
     }
-    
     alert(`成功處理 ${successCount} 位報名紀錄！`);
     location.reload();
   } catch (err) {
-    alert("部分或全部報名失敗，請聯絡管理員");
+    alert("部分或全部報名失敗");
     $('subBtn').disabled = false;
     $('subBtn').innerText = "送出報名";
   }
 };
 
-// --- 修正後的取消邏輯：一併處理來賓紀錄 ---
 $('cancelBtn').onclick = async () => {
   if (!confirm("警告：取消報名將會一併移除您名下的所有來賓紀錄，確定嗎？")) return;
-  
   const o = $('eventSelect').selectedOptions[0].dataset;
   $('cancelBtn').disabled = true;
   $('cancelBtn').innerText = "處理中...";
-
   try {
-    // 傳送本人 ID 給後端
-    // 提示：建議在 GAS 後端 cancel 邏輯中，加入刪除「所有 userId 開頭的紀錄」的功能
-    const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ 
-      eventId: o.eventid, 
-      userId: $('userId').value 
-    }))}`);
-    
+    const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ eventId: o.eventid, userId: $('userId').value }))}`);
     alert(r.message); 
     location.reload();
   } catch (err) {
-    alert("取消失敗，請稍後再試");
+    alert("取消失敗");
     $('cancelBtn').disabled = false;
-    $('cancelBtn').innerText = "❌ 取消報名";
   }
 };
 

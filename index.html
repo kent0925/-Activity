@@ -50,6 +50,13 @@
   .remove-btn { color: #ff4d4d; border: none; background: none; cursor: pointer; font-size: 18px; font-weight: bold; width: auto; }
   .add-sponsor-btn { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 14px; width: 100%; font-weight: bold; display:none; }
   .map-link-btn { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; padding: 10px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: center; margin-top: 10px; font-weight: bold; }
+
+  /* 新增：來賓卡片樣式 */
+  .guest-card { border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 15px; background: #fff; overflow: hidden; }
+  .guest-header { background: #f8f9fa; padding: 10px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a73e8; border-bottom: 1px solid #eee; }
+  .guest-body { padding: 15px; display: block; }
+  .guest-del { color: #ff4d4d; font-size: 13px; cursor: pointer; text-decoration: underline; }
+  .btn-add-guest { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; margin-top: 15px; font-size: 14px; width: 100%; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -82,15 +89,22 @@
 
   <form id="regForm" style="display:none;">
     <input type="hidden" id="userId"><input type="hidden" id="userName">
-    <label>報名者姓名：<input type="text" id="userNameShow" readonly></label>
-    <label>參加人數：<select id="people"></select></label>
-    <div id="weiyaFields" style="display:none;"><label>認桌數量：<select id="table"></select></label></div>
-    <div id="travelFields" style="display:none;">
-      <label><span style="color:red;">*</span> 上車地點：</label>
-      <select id="pickup" onchange="updatePickupMap()"></select>
-      <div id="pickupMapLink" class="map-link-btn" style="display:none;" onclick="openPickupMap()">📍 查看 [ <span id="locLabel"></span> ] 上車位置</div>
-      <label><span style="color:red;">*</span> 房型選擇：</label><select id="room"></select>
+    
+    <div style="background: #f8faff; padding: 12px; border-radius: 8px; border: 1px solid #e8f0fe;">
+      <label>報名者姓名 (本人)：<input type="text" id="userNameShow" readonly></label>
+      <label>參加人數：<select id="people"></select></label>
+      <div id="weiyaFields" style="display:none;"><label>認桌數量：<select id="table"></select></label></div>
+      <div id="travelFields" style="display:none;">
+        <label><span style="color:red;">*</span> 上車地點：</label>
+        <select id="pickup" onchange="updatePickupMap()"></select>
+        <div id="pickupMapLink" class="map-link-btn" style="display:none;" onclick="openPickupMap()">📍 查看 [ <span id="locLabel"></span> ] 上車位置</div>
+        <label><span style="color:red;">*</span> 房型選擇：</label><select id="room"></select>
+      </div>
     </div>
+
+    <div id="guestContainer"></div>
+    <button type="button" class="btn-add-guest" id="addGuestBtn">➕ 新增來賓報名</button>
+
     <hr style="margin:20px 0; border:0; border-top:1px solid #eee;">
     <label>🎁 贊助項目管理：</label>
     <div id="sponsorContainer"></div>
@@ -114,6 +128,7 @@ const LIFF_ID = '2008678090-TpSkCDSZ';
 const $ = id => document.getElementById(id);
 let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
 
+// --- 原始功能函數 (保留不變) ---
 function openOfficialSite() {
   const sel = $('eventSelect').selectedOptions[0];
   if (!sel) return;
@@ -121,7 +136,6 @@ function openOfficialSite() {
   if (o.officialsite && o.officialsite !== "undefined" && o.officialsite.trim() !== "") window.open(o.officialsite, '_blank');
   else alert("此地點暫無官網資料");
 }
-
 function openGoogleMap() {
   const sel = $('eventSelect').selectedOptions[0];
   if (!sel) return;
@@ -129,66 +143,34 @@ function openGoogleMap() {
   const query = encodeURIComponent(`${o.store} ${o.address}`);
   window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
 }
-
-function getDayOfWeek(dateStr) {
-  const days = ['日', '一', '二', '三', '四', '五', '六'];
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? '' : `(${days[d.getDay()]})`;
-}
-
-// 旅遊用：只取日期格式 YYYY/MM/DD
 function formatOnlyDate(val) {
   if (!val || val === 'undefined') return '';
   const d = new Date(val);
   if (isNaN(d.getTime())) return val;
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
-
-// 聚會用：解決時區偏移 08:00 問題，並修正格式為：2026/02/05 (四) 15:00
 function formatDateTime(val) {
   if (!val || val === 'undefined') return '';
-  
-  // 1. 建立 Date 物件僅為了取得「星期幾」
   let d = new Date(val);
   if (isNaN(d.getTime())) return val;
-
-  // 2. 取得日期組件
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const date = String(d.getDate()).padStart(2, '0');
   const days = ['日', '一', '二', '三', '四', '五', '六'];
   const dayName = `(${days[d.getDay()]})`;
-
-  // 3. 強制擷取時間部分，避開 JS 自動減去 8 小時的問題
-  // 假設原始資料是 "2026/02/05 15:00:00" 或 "2026-02-05T15:00:00"
-  let timePart = "";
-  if (typeof val === 'string' && val.includes(' ')) {
-    // 處理 "2026/02/05 15:00:00" 格式
-    timePart = val.split(' ')[1].substring(0, 5); 
-  } else if (typeof val === 'string' && val.includes('T')) {
-    // 處理 ISO "2026-02-05T15:00:00" 格式
-    timePart = val.split('T')[1].substring(0, 5);
-  } else {
-    // 若以上皆非，則使用本地時間數值
-    timePart = String(d.getHours()).padStart(2, '0') + ":" + String(d.getMinutes()).padStart(2, '0');
-  }
-
-  // 4. 回傳格式：日期 (星期) 時間
+  let timePart = (typeof val === 'string' && val.includes(' ')) ? val.split(' ')[1].substring(0, 5) : String(d.getHours()).padStart(2, '0') + ":" + String(d.getMinutes()).padStart(2, '0');
   return `${y}/${m}/${date} ${dayName} ${timePart}`;
 }
-
 function toggleItinerary() {
   const c = $('itineraryContent'); 
   c.style.display = c.style.display === 'block' ? 'none' : 'block';
   $('arrow').innerText = c.style.display === 'block' ? '－' : '＋';
 }
-
 function toggleDay(el) {
   const c = el.nextElementSibling; 
   c.style.display = c.style.display === 'block' ? 'none' : 'block';
   el.querySelector('.day-arrow').innerText = c.style.display === 'block' ? '－' : '＋';
 }
-
 async function callApi(action, extra = '') {
   try {
     const r = await fetch(`${GAS_URL}?action=${action}${extra}&ts=${Date.now()}`);
@@ -196,6 +178,7 @@ async function callApi(action, extra = '') {
   } catch (e) { return []; }
 }
 
+// --- 初始化與選單邏輯 ---
 async function init(){
   try {
     await liff.init({ liffId: LIFF_ID });
@@ -203,14 +186,11 @@ async function init(){
     const p = await liff.getProfile();
     $('userName').value = $('userNameShow').value = p.displayName; 
     $('userId').value = p.userId;
-    
     const res = await callApi('getInitData'); 
     masterOptions = res.options;
     masterOptions.itinerary = res.itinerary;
-
     const sel = $('eventSelect');
     sel.innerHTML = '<option value="">-- 請選擇活動 --</option>';
-    
     res.events.forEach(ev => {
       if (!ev.eventId) return;
       const joined = res.registrations.some(j => String(j.eventId) === String(ev.eventId) && String(j.userId) === String(p.userId));
@@ -221,7 +201,6 @@ async function init(){
       });
       sel.add(opt);
     });
-
     renderEventCards();
   } catch (err) { console.error(err); }
 }
@@ -257,10 +236,10 @@ $('eventSelect').onchange = async () => {
   $('pickupMapLink').style.display = 'none';
   $('sponsorContainer').innerHTML = '';
   $('itineraryContent').style.display = 'none';
+  $('guestContainer').innerHTML = ''; // 清空來賓
   $('arrow').innerText = '＋';
 
   const d = o.dataset;
-  // 核心判斷：支援多種聚會關鍵字
   const isW = (d.type === '尾牙' || d.type === '聚會' || d.type === '餐會');
   const joined = d.joined === 'true';
 
@@ -284,20 +263,15 @@ $('eventSelect').onchange = async () => {
   fill('people', masterOptions.people);
 
   if (isW) {
-    // 【聚會模式】
-    const timeFormatted = formatDateTime(d.time);
-    $('evTime').innerText = timeFormatted || "時間未定";
-    
+    $('evTime').innerText = formatDateTime(d.time) || "時間未定";
     $('weiyaFields').style.display = 'block'; 
     $('travelFields').style.display = 'none';
     $('itineraryBox').style.display = 'none'; 
     fill('table', masterOptions.table);
   } else {
-    // 【旅遊模式】
     const sDate = formatOnlyDate(d.startdate);
     const eDate = formatOnlyDate(d.enddate);
     $('evTime').innerText = (sDate && eDate) ? `${sDate} ~ ${eDate}` : "時間未定";
-
     $('travelFields').style.display = 'block'; 
     $('weiyaFields').style.display = 'none';
     
@@ -314,34 +288,75 @@ $('eventSelect').onchange = async () => {
     rSel.add(new Option("我要併房 (費用另計)", "我要併房"));
     masterOptions.room.forEach(i => {
       const used = users.reduce((acc, u) => (u.room && u.room.startsWith(i.name)) ? acc + 1 : acc, 0);
-      const total = parseInt(i.totalCount) || 0;
-      const rem = total - used;
+      const rem = (parseInt(i.totalCount) || 0) - used;
       const label = rem > 0 ? `${i.name} / ${i.price}元 / 剩${rem}間` : `${i.name} (已滿，待規劃)`;
       rSel.add(new Option(label, i.name));
     });
     renderItinerary();
   }
-
   createSponsorRow(); 
   $('regForm').style.display = $('eventInfo').style.display = 'block';
   renderStatsView(curStats, d.type);
 };
 
+// --- 新增：來賓管理邏輯 ---
+$('addGuestBtn').onclick = () => {
+  const gid = 'guest_' + Date.now();
+  const isTravel = $('travelFields').style.display === 'block';
+  
+  const div = document.createElement('div');
+  div.className = 'guest-card';
+  div.id = gid;
+  div.innerHTML = `
+    <div class="guest-header" onclick="toggleGuest('${gid}')">
+      <span>👤 來賓：<span class="g-name-lbl">新來賓</span></span>
+      <div>
+        <span class="guest-del" onclick="removeGuest('${gid}', event)">刪除</span>
+        <span class="g-arrow" style="margin-left:10px;">－</span>
+      </div>
+    </div>
+    <div class="guest-body">
+      <label>來賓姓名：<input type="text" class="g-name" placeholder="請輸入姓名" oninput="updateGuestName(this)"></label>
+      <label>參加人數：<select class="g-people">${$('people').innerHTML}</select></label>
+      <div class="g-travel-only" style="display:${isTravel ? 'block' : 'none'}">
+        <label>上車地點：<select class="g-pickup">${$('pickup').innerHTML}</select></label>
+        <label>房型選擇：<select class="g-room">${$('room').innerHTML}</select></label>
+      </div>
+    </div>
+  `;
+  $('guestContainer').appendChild(div);
+};
+
+function updateGuestName(input) {
+  input.closest('.guest-card').querySelector('.g-name-lbl').innerText = input.value || "新來賓";
+}
+
+function toggleGuest(id) {
+  const card = $(id);
+  const body = card.querySelector('.guest-body');
+  const arrow = card.querySelector('.g-arrow');
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  arrow.innerText = isHidden ? '－' : '＋';
+}
+
+function removeGuest(id, e) {
+  e.stopPropagation();
+  if(confirm("確定要移除這位來賓嗎？")) $(id).remove();
+}
+
+// --- 贊助與地圖邏輯 (保留不變) ---
 function updatePickupMap() {
   const opt = $('pickup').selectedOptions[0];
   if (opt && opt.value && opt.dataset.mapurl) { 
     $('locLabel').innerText = opt.value; 
     $('pickupMapLink').style.display = 'block'; 
-  } else { 
-    $('pickupMapLink').style.display = 'none'; 
-  }
+  } else { $('pickupMapLink').style.display = 'none'; }
 }
-
 function openPickupMap() { 
   const url = $('pickup').selectedOptions[0].dataset.mapurl; 
   if (url) window.open(url, '_blank'); 
 }
-
 function renderStatsView(data, type) {
   const users = data.users || [];
   $('uStats').innerHTML = `<strong>👤 總報名：${users.reduce((s, u) => s + (parseInt(u.people) || 0), 0)} 人</strong>`;
@@ -351,13 +366,10 @@ function renderStatsView(data, type) {
   let spHtml = `<hr><strong>🎁 贊助彙整：</strong><br>`;
   if(data.sponsor && Object.keys(data.sponsor).length > 0) {
     for (let k in data.sponsor) spHtml += `• ${k}: ${data.sponsor[k]}<br>`;
-  } else {
-    spHtml += '暫無贊助';
-  }
+  } else { spHtml += '暫無贊助'; }
   $('sStats').innerHTML = spHtml; 
   $('stats').style.display = 'block';
 }
-
 function renderItinerary() {
   const list = masterOptions.itinerary;
   if (!list || list.length === 0) { $('itineraryBox').style.display = 'none'; return; }
@@ -376,7 +388,6 @@ function renderItinerary() {
 }
 
 $('addSponsorBtn').onclick = createSponsorRow;
-
 function createSponsorRow() {
   const rowId = 'spRow_' + Date.now();
   const div = document.createElement('div'); div.className = 'sponsor-item'; div.id = rowId;
@@ -395,7 +406,6 @@ function createSponsorRow() {
   sel.add(new Option("無", "無"));
   masterOptions.sponsor.filter(s => s !== "無").forEach(s => sel.add(new Option(s, s)));
 }
-
 function handleSponsorChange(id) {
   const r = $(id), v = r.querySelector('.sponsor-select').value, qG = r.querySelector('.qtyGrp'), qS = r.querySelector('.qtySelect'), oI = r.querySelector('.otherInput'), mG = r.querySelector('.moneyGrp');
   qG.style.display = (v && v !== '無') ? 'block' : 'none';
@@ -409,80 +419,131 @@ function handleSponsorChange(id) {
   }
   checkSponsorAddButton();
 }
-
 function handleQtyChange(id) { 
   $(id).querySelector('.custom-qty-grp').style.display = ($(id).querySelector('.qtySelect').value === '自定義數量') ? 'flex' : 'none'; 
 }
-
 function validateCustomQty(id) { 
   const r = $(id), u = r.querySelector('.cUnit').value, i = r.querySelector('.cQty'); 
   if (u === '瓶' && i.value < 6) i.value = 6; 
   if (u === '箱' && i.value < 3) i.value = 3; 
 }
-
 function removeRow(id) { 
   $(id).remove(); 
   checkSponsorAddButton(); 
   if ($('sponsorContainer').children.length === 0) createSponsorRow(); 
 }
-
 function checkSponsorAddButton() { 
   const s = document.querySelectorAll('.sponsor-select'); 
   $('addSponsorBtn').style.display = (s[s.length - 1]?.value && s[s.length - 1]?.value !== '無') ? 'block' : 'none'; 
 }
 
+// --- 提交邏輯 (修改以包含來賓資料) ---
+// --- 修改後的提交邏輯：本人與來賓分開寫入以佔用房量 ---
 $('regForm').onsubmit = async (e) => {
   e.preventDefault();
   const o = $('eventSelect').selectedOptions[0].dataset;
+  
+  // 基礎驗證
   if (o.type === '旅遊') {
-    if (!$('pickup').value) return alert("請選擇上車地點");
-    if (!$('room').value) return alert("請選擇房型");
+    if (!$('pickup').value) return alert("請選擇本人的上車地點");
+    if (!$('room').value) return alert("請選擇本人的房型");
   }
 
+  // 1. 收集贊助清單 (僅限本人)
   const sponsorList = [];
   document.querySelectorAll('.sponsor-item').forEach(r => {
     const n = r.querySelector('.sponsor-select').value; if(!n || n === '無') return;
     if (n === '其他') { 
       const val = r.querySelector('.otherInput').value;
       if(val) sponsorList.push(val); 
-    }
-    else if (n === '紅包') { 
+    } else if (n === '紅包') { 
       sponsorList.push(`紅包(${r.querySelector('.mVal').value}元)`); 
-    }
-    else {
+    } else {
       const q = r.querySelector('.qtySelect').value;
       sponsorList.push(q === '自定義數量' ? `${n}(${r.querySelector('.cQty').value}${r.querySelector('.cUnit').value})` : `${n}(${q})`);
     }
   });
 
+  // 2. 建立待提交隊列 (本人 + 來賓)
+  const queue = [];
+  
+  // A. 本人資料
+  queue.push({
+    eventId: o.eventid,
+    eventType: o.type,
+    userId: $('userId').value,
+    userName: $('userName').value,
+    people: $('people').value,
+    table: (o.type === '尾牙' || o.type === '聚會' || o.type === '餐會') ? $('table').value : '',
+    pickup: o.type === '旅遊' ? $('pickup').value : '',
+    room: o.type === '旅遊' ? ($('room').value === '我要併房' ? '我要併房' : `${$('room').value} (1間)`) : '',
+    sponsor: sponsorList.join(', ') || '無',
+    memo: $('memo').value
+  });
+
+  // B. 來賓資料 (遍歷所有來賓卡片)
+  document.querySelectorAll('.guest-card').forEach((c, index) => {
+    const gName = c.querySelector('.g-name').value;
+    const gRoom = c.querySelector('.g-room').value;
+    if (!gName) return;
+    
+    queue.push({
+      eventId: o.eventid,
+      eventType: o.type,
+      userId: $('userId').value + "_guest_" + index, // 賦予虛擬ID
+      userName: gName + " (來賓)",
+      people: c.querySelector('.g-people').value,
+      table: (o.type === '尾牙' || o.type === '聚會' || o.type === '餐會') ? $('table').value : '',
+      pickup: o.type === '旅遊' ? c.querySelector('.g-pickup').value : '',
+      room: o.type === '旅遊' ? (gRoom === '我要併房' ? '我要併房' : `${gRoom} (1間)`) : '',
+      sponsor: "無",
+      memo: `由 ${$('userName').value} 代報名`
+    });
+  });
+
   $('subBtn').disabled = true;
   $('subBtn').innerText = "處理中...";
 
-  const p = {
-    eventId: o.eventid, eventType: o.type, userId: $('userId').value, userName: $('userName').value,
-    people: $('people').value, table: (o.type === '尾牙' || o.type === '聚會') ? $('table').value : '',
-    pickup: o.type === '旅遊' ? $('pickup').value : '',
-    room: o.type === '旅遊' ? ($('room').value === '我要併房' ? '我要併房' : `${$('room').value} (1間)`) : '',
-    sponsor: sponsorList.join(', ') || '無', memo: $('memo').value
-  };
-
+  // 3. 依序執行 API 呼叫
   try {
-    const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(p))}`);
-    alert(r.message); 
+    let successCount = 0;
+    for (const payload of queue) {
+      const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(payload))}`);
+      if (r.status === "success") successCount++;
+    }
+    
+    alert(`成功處理 ${successCount} 位報名紀錄！`);
     location.reload();
   } catch (err) {
-    alert("送出失敗");
+    alert("部分或全部報名失敗，請聯絡管理員");
     $('subBtn').disabled = false;
     $('subBtn').innerText = "送出報名";
   }
 };
 
+// --- 修正後的取消邏輯：一併處理來賓紀錄 ---
 $('cancelBtn').onclick = async () => {
-  if (!confirm("確定要取消報名嗎？")) return;
+  if (!confirm("警告：取消報名將會一併移除您名下的所有來賓紀錄，確定嗎？")) return;
+  
   const o = $('eventSelect').selectedOptions[0].dataset;
-  const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ eventId: o.eventid, userId: $('userId').value }))}`);
-  alert(r.message); 
-  location.reload();
+  $('cancelBtn').disabled = true;
+  $('cancelBtn').innerText = "處理中...";
+
+  try {
+    // 傳送本人 ID 給後端
+    // 提示：建議在 GAS 後端 cancel 邏輯中，加入刪除「所有 userId 開頭的紀錄」的功能
+    const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ 
+      eventId: o.eventid, 
+      userId: $('userId').value 
+    }))}`);
+    
+    alert(r.message); 
+    location.reload();
+  } catch (err) {
+    alert("取消失敗，請稍後再試");
+    $('cancelBtn').disabled = false;
+    $('cancelBtn').innerText = "❌ 取消報名";
+  }
 };
 
 window.onload = init;

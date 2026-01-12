@@ -82,13 +82,14 @@
     background: #ffffff;
     color: #4CAF50;
     border: 1px solid #4CAF50;
-    padding: 6px 12px;
-    font-size: 12px;
+    padding: 2px 6px;           /* 再度縮減：上下2px，左右6px */
+    font-size: 11px;            /* 使用較小字體 */
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
-    white-space: nowrap;           /* 防止按鈕文字折行 */
+    white-space: nowrap;
     transition: 0.2s;
+    width: auto;                /* 移除 min-width，讓寬度由文字撐開 */
   }
   
   .copy-btn:hover {

@@ -514,7 +514,7 @@
         function escapeHtml(text) {
             if (!text) return text;
             return text.replace(/[&<>"']/g, function(m) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+                return { '&': '&', '<': '<', '>': '>', '"': '"', "'": "'" }[m];
             });
         }
 
@@ -565,7 +565,7 @@
             const sel = $('eventSelect').selectedOptions[0];
             if (!sel) return;
             const o = sel.dataset;
-            // FIXED: Use standard Universal Link for better mobile support
+            // Standard Universal Link
             const query = encodeURIComponent(`${o.store} ${o.address}`);
             window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
         }
@@ -651,7 +651,7 @@
                 if (d.joined === 'true') card.innerHTML += '<span class="badge">已報名</span>';
                 card.innerHTML += `<div class="type-tag">${d.type}</div><div class="title">${d.title}</div>`;
                 
-                // --- 關鍵修改：點擊切換邏輯 (Click Toggle Logic) ---
+                // --- 點擊切換邏輯 (Click Toggle Logic) ---
                 card.onclick = () => {
                     if (card.classList.contains('selected')) {
                         // 如果已經選中 -> 收縮 (Collapse)

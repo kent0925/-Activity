@@ -514,7 +514,7 @@
         function escapeHtml(text) {
             if (!text) return text;
             return text.replace(/[&<>"']/g, function(m) {
-                return { '&': '&', '<': '<', '>': '>', '"': '"', "'": ''' }[m];
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
             });
         }
 
@@ -565,7 +565,7 @@
             const sel = $('eventSelect').selectedOptions[0];
             if (!sel) return;
             const o = sel.dataset;
-            // Standard Universal Link
+            // FIXED: Use standard Universal Link for better mobile support
             const query = encodeURIComponent(`${o.store} ${o.address}`);
             window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
         }

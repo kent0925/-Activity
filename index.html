@@ -93,7 +93,7 @@
             background: #fff;
             border: 2px solid transparent;
             border-radius: 16px;
-            padding: 16px 10px;
+            padding: 20px 10px; /* 增加 padding */
             text-align: center;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -101,7 +101,8 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 80px;
+            align-items: center; /* 讓內容置中 */
+            min-height: 100px; /* 稍微加高 */
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
         }
 
@@ -111,6 +112,14 @@
             border-color: var(--primary);
             background: var(--primary-soft);
             box-shadow: 0 8px 16px rgba(6, 199, 85, 0.2);
+        }
+
+        /* --- 新增：Icon 樣式 --- */
+        .event-icon {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            line-height: 1;
         }
 
         .event-card .badge {
@@ -649,6 +658,14 @@
                 const card = document.createElement('div');
                 card.className = 'event-card';
                 if (d.joined === 'true') card.innerHTML += '<span class="badge">已報名</span>';
+                
+                // --- 設定 ICON 邏輯 ---
+                let icon = '📅'; // 預設
+                if (d.type === '旅遊') icon = '🚌';
+                else if (['尾牙', '餐會', '聚會'].includes(d.type)) icon = '🍻';
+                
+                // 加入 Icon
+                card.innerHTML += `<div class="event-icon">${icon}</div>`;
                 card.innerHTML += `<div class="type-tag">${d.type}</div><div class="title">${d.title}</div>`;
                 
                 // --- 點擊切換邏輯 (Click Toggle Logic) ---
@@ -674,8 +691,7 @@
                         sel.dispatchEvent(new Event('change'));
                     }
                 };
-                // ------------------------------------------------
-
+                
                 grid.appendChild(card);
             });
         }

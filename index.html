@@ -125,6 +125,29 @@
             to { opacity: 0; transform: translateY(-10px); }
         }
 
+        /* --- [V3 New] Custom Modal Styles --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+            z-index: 10000; display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: all 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-box {
+            background: #fff; width: 85%; max-width: 320px; padding: 24px;
+            border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-align: center;
+        }
+        .modal-overlay.active .modal-box { transform: scale(1); }
+        .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; color: var(--text-main); }
+        .modal-desc { color: var(--text-sub); font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 10px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; border: none; font-size: 0.95rem; }
+        .modal-btn.cancel { background: #f1f5f9; color: var(--text-sub); }
+        .modal-btn.confirm { background: var(--primary); color: white; }
+        .modal-btn.confirm.danger { background: var(--accent-red); }
+
         /* --- Skeleton Loading Styles --- */
         .skeleton {
             background: #f0f2f5;
@@ -243,6 +266,10 @@
             outline: none;
             box-shadow: 0 0 0 4px rgba(6, 199, 85, 0.1);
         }
+
+        /* --- [V3 New] Input Error State --- */
+        .input-error { border-color: var(--accent-red) !important; background: #fff5f5 !important; animation: shake 0.4s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
         /* Buttons */
         .btn-group {
@@ -492,11 +519,21 @@
 <body>
     <div id="toast-container"></div>
 
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal-box">
+            <div id="modalTitle" class="modal-title">提示</div>
+            <div id="modalDesc" class="modal-desc">內容</div>
+            <div class="modal-actions">
+                <button id="modalCancel" class="modal-btn cancel">取消</button>
+                <button id="modalConfirm" class="modal-btn confirm">確定</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <h2>旅遊 / 餐會 報名系統</h2>
         <label>選擇活動：</label>
-        <div id="eventGrid" class="event-grid">
-            </div>
+        <div id="eventGrid" class="event-grid"></div>
         <select id="eventSelect" style="display:none;">
             <option value="">載入中...</option>
         </select>
@@ -582,34 +619,52 @@
         let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
         let CURRENT_STATS_DATA = { users: [], eventInfo: {}, type: "" };
 
-        // --- NEW: Toast Notification Function ---
+        // --- NEW: Custom Modal Function ---
+        function showConfirm(title, message, isDanger = false) {
+            return new Promise((resolve) => {
+                const overlay = $('modalOverlay');
+                $('modalTitle').innerText = title;
+                $('modalDesc').innerText = message;
+                const confirmBtn = $('modalConfirm');
+                
+                // Style adjustment for dangerous actions
+                if(isDanger) confirmBtn.classList.add('danger');
+                else confirmBtn.classList.remove('danger');
+
+                overlay.classList.add('active');
+
+                // Cleanup old listeners to prevent stacking
+                const newConfirm = confirmBtn.cloneNode(true);
+                const newCancel = $('modalCancel').cloneNode(true);
+                confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+                $('modalCancel').parentNode.replaceChild(newCancel, $('modalCancel'));
+
+                newConfirm.onclick = () => { overlay.classList.remove('active'); resolve(true); };
+                newCancel.onclick = () => { overlay.classList.remove('active'); resolve(false); };
+            });
+        }
+
+        // --- Toast Notification ---
         function showToast(message, type = 'info') {
             const container = $('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            
             let icon = 'ℹ️';
             if(type === 'success') icon = '✅';
             if(type === 'error') icon = '🚫';
 
             toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(message)}</span>`;
-            
             container.appendChild(toast);
-
-            // Auto remove
             setTimeout(() => {
                 toast.style.animation = 'fadeOut 0.4s forwards';
-                toast.addEventListener('animationend', () => {
-                    toast.remove();
-                });
+                toast.addEventListener('animationend', () => toast.remove());
             }, 3000);
         }
 
-        // --- NEW: Render Skeleton Loader ---
+        // --- Render Skeleton ---
         function renderSkeleton() {
             const grid = $('eventGrid');
             grid.innerHTML = '';
-            // Render 4 dummy cards
             for(let i=0; i<4; i++) {
                 const sk = document.createElement('div');
                 sk.className = 'skeleton sk-card';
@@ -617,12 +672,23 @@
             }
         }
 
-        // XSS Protection Helper
         function escapeHtml(text) {
             if (!text) return text;
             return text.replace(/[&<>"']/g, function(m) {
                 return { '&': '&', '<': '<', '>': '>', '"': '"', "'": "'" }[m];
             });
+        }
+
+        // --- [V3 New] Error Helper ---
+        function setError(input, isError) {
+            if(isError) {
+                input.classList.add('input-error');
+                // Auto remove error on input
+                input.addEventListener('input', function() { this.classList.remove('input-error'); }, {once:true});
+                input.addEventListener('change', function() { this.classList.remove('input-error'); }, {once:true});
+            } else {
+                input.classList.remove('input-error');
+            }
         }
 
         function copyToClipboard() {
@@ -672,7 +738,6 @@
             const sel = $('eventSelect').selectedOptions[0];
             if (!sel) return;
             const o = sel.dataset;
-            // Standard Universal Link
             const query = encodeURIComponent(`${o.store} ${o.address}`);
             window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${query}`, '_blank');
         }
@@ -722,7 +787,7 @@
 
         async function init() {
             try {
-                renderSkeleton(); // Show Skeleton immediately
+                renderSkeleton();
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) liff.login();
                 const p = await liff.getProfile();
@@ -744,7 +809,7 @@
                     });
                     sel.add(opt);
                 });
-                renderEventCards(); // Replace Skeleton with real cards
+                renderEventCards();
             } catch (err) {
                 console.error(err);
                 showToast("系統初始化失敗，請重新整理", "error");
@@ -873,6 +938,8 @@
             for (let input of guestInputs) {
                 if (input.value.trim() === "") {
                     showToast("請先填寫完目前來賓的姓名，再新增下一位！", "error");
+                    // [V3 New] Error Focus
+                    setError(input, true); 
                     input.focus();
                     return;
                 }
@@ -916,9 +983,11 @@
             arrow.innerText = isHidden ? '－' : '＋';
         }
 
-        function removeGuest(id, e) {
+        async function removeGuest(id, e) {
             e.stopPropagation();
-            if (confirm("確定要移除這位來賓嗎？")) $(id).remove();
+            // [V3 New] Custom Confirm
+            const confirmed = await showConfirm("移除來賓", "確定要移除這位來賓的報名資料嗎？", true);
+            if(confirmed) $(id).remove();
         }
 
         function updatePickupMap() {
@@ -1044,10 +1113,31 @@
         $('regForm').onsubmit = async (e) => {
             e.preventDefault();
             const o = $('eventSelect').selectedOptions[0].dataset;
+            let firstError = null; // Track first error
+
+            // [V3 New] Enhanced Validation
             if (o.type === '旅遊') {
-                if (!$('pickup').value) { showToast("請選擇本人的上車地點", "error"); return; }
-                if (!$('room').value) { showToast("請選擇本人的房型", "error"); return; }
+                const pInput = $('pickup'), rInput = $('room');
+                if (!pInput.value) { setError(pInput, true); if(!firstError) firstError = pInput; }
+                if (!rInput.value) { setError(rInput, true); if(!firstError) firstError = rInput; }
             }
+            
+            // Check Guest Fields
+            document.querySelectorAll('.guest-card').forEach(c => {
+               const gName = c.querySelector('.g-name'), gPick = c.querySelector('.g-pickup'), gRoom = c.querySelector('.g-room');
+               if(gName.value.trim() === "") { setError(gName, true); if(!firstError) firstError = gName; }
+               if(o.type === '旅遊') {
+                   if(!gPick.value) { setError(gPick, true); if(!firstError) firstError = gPick; }
+                   if(!gRoom.value) { setError(gRoom, true); if(!firstError) firstError = gRoom; }
+               }
+            });
+
+            if(firstError) {
+                showToast("請檢查紅框標示的欄位", "error");
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
             const sponsorList = [];
             document.querySelectorAll('.sponsor-item').forEach(r => {
                 const n = r.querySelector('.sponsor-select').value;
@@ -1081,6 +1171,10 @@
                 });
             });
 
+            // [V3 New] Custom Confirm
+            const confirmed = await showConfirm("確認送出", `即將送出 ${queue.length} 位報名資料，確定嗎？`);
+            if(!confirmed) return;
+
             $('subBtn').disabled = true;
             $('subBtn').innerText = "準備送出...";
             try {
@@ -1101,7 +1195,10 @@
         };
 
         $('cancelBtn').onclick = async () => {
-            if (!confirm("警告：取消報名將會一併移除您名下的所有來賓紀錄，確定嗎？")) return;
+            // [V3 New] Custom Confirm (Danger style)
+            const confirmed = await showConfirm("取消報名", "警告：這將會刪除您與所有來賓的紀錄，確定嗎？", true);
+            if (!confirmed) return;
+
             const o = $('eventSelect').selectedOptions[0].dataset;
             $('cancelBtn').disabled = true;
             $('cancelBtn').innerText = "處理中...";

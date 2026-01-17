@@ -125,7 +125,7 @@
             to { opacity: 0; transform: translateY(-10px); }
         }
 
-        /* --- [V3 New] Custom Modal Styles --- */
+        /* --- Custom Modal Styles --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
@@ -267,7 +267,7 @@
             box-shadow: 0 0 0 4px rgba(6, 199, 85, 0.1);
         }
 
-        /* --- [V3 New] Input Error State --- */
+        /* Input Error State */
         .input-error { border-color: var(--accent-red) !important; background: #fff5f5 !important; animation: shake 0.4s ease-in-out; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
@@ -619,7 +619,7 @@
         let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
         let CURRENT_STATS_DATA = { users: [], eventInfo: {}, type: "" };
 
-        // --- NEW: Custom Modal Function ---
+        // --- Custom Modal Function ---
         function showConfirm(title, message, isDanger = false) {
             return new Promise((resolve) => {
                 const overlay = $('modalOverlay');
@@ -627,13 +627,11 @@
                 $('modalDesc').innerText = message;
                 const confirmBtn = $('modalConfirm');
                 
-                // Style adjustment for dangerous actions
                 if(isDanger) confirmBtn.classList.add('danger');
                 else confirmBtn.classList.remove('danger');
 
                 overlay.classList.add('active');
 
-                // Cleanup old listeners to prevent stacking
                 const newConfirm = confirmBtn.cloneNode(true);
                 const newCancel = $('modalCancel').cloneNode(true);
                 confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
@@ -649,10 +647,7 @@
             const container = $('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            let icon = 'ℹ️';
-            if(type === 'success') icon = '✅';
-            if(type === 'error') icon = '🚫';
-
+            let icon = type === 'success' ? '✅' : type === 'error' ? '🚫' : 'ℹ️';
             toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(message)}</span>`;
             container.appendChild(toast);
             setTimeout(() => {
@@ -679,11 +674,10 @@
             });
         }
 
-        // --- [V3 New] Error Helper ---
+        // --- Error Helper ---
         function setError(input, isError) {
             if(isError) {
                 input.classList.add('input-error');
-                // Auto remove error on input
                 input.addEventListener('input', function() { this.classList.remove('input-error'); }, {once:true});
                 input.addEventListener('change', function() { this.classList.remove('input-error'); }, {once:true});
             } else {
@@ -708,9 +702,7 @@
             const sStatsEl = $('sStats');
             if (sStatsEl) {
                 let sText = sStatsEl.innerText.replace('🎁 贊助彙整：', '').trim();
-                if (sText && sText !== '暫無贊助') {
-                    text += `🎁 贊助彙整：\n${sText}\n`;
-                }
+                if (sText && sText !== '暫無贊助') text += `🎁 贊助彙整：\n${sText}\n`;
             }
             text += `🔗 報名：https://liff.line.me/${LIFF_ID}`;
             const el = document.createElement('textarea');
@@ -785,16 +777,39 @@
             }
         }
 
+        // --- Caching Logic Variables ---
+        const CACHE_KEY = 'liff_event_init_data_v1';
+        const CACHE_DURATION = 30 * 60 * 1000; // 30 Minutes
+
         async function init() {
+            renderSkeleton(); // Show Skeleton immediately
             try {
-                renderSkeleton();
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) liff.login();
                 const p = await liff.getProfile();
                 $('userName').value = $('userNameShow').value = p.displayName;
                 $('userId').value = p.userId;
                 
-                const res = await callApi('getInitData');
+                // --- Cache Implementation ---
+                let res;
+                const cachedData = sessionStorage.getItem(CACHE_KEY);
+                const cachedTime = sessionStorage.getItem(CACHE_KEY + '_time');
+                const now = Date.now();
+
+                if (cachedData && cachedTime && (now - cachedTime < CACHE_DURATION)) {
+                    console.log("Using Cached Data");
+                    res = JSON.parse(cachedData);
+                } else {
+                    console.log("Fetching from GAS");
+                    res = await callApi('getInitData');
+                    
+                    if (res && res.events) {
+                        sessionStorage.setItem(CACHE_KEY, JSON.stringify(res));
+                        sessionStorage.setItem(CACHE_KEY + '_time', now);
+                    }
+                }
+                // --- End Cache Implementation ---
+
                 masterOptions = res.options;
                 masterOptions.itinerary = res.itinerary;
                 const sel = $('eventSelect');
@@ -812,6 +827,8 @@
                 renderEventCards();
             } catch (err) {
                 console.error(err);
+                sessionStorage.removeItem(CACHE_KEY); // Clear cache on error
+                sessionStorage.removeItem(CACHE_KEY + '_time');
                 showToast("系統初始化失敗，請重新整理", "error");
             }
         }
@@ -938,7 +955,6 @@
             for (let input of guestInputs) {
                 if (input.value.trim() === "") {
                     showToast("請先填寫完目前來賓的姓名，再新增下一位！", "error");
-                    // [V3 New] Error Focus
                     setError(input, true); 
                     input.focus();
                     return;
@@ -985,7 +1001,6 @@
 
         async function removeGuest(id, e) {
             e.stopPropagation();
-            // [V3 New] Custom Confirm
             const confirmed = await showConfirm("移除來賓", "確定要移除這位來賓的報名資料嗎？", true);
             if(confirmed) $(id).remove();
         }
@@ -1113,9 +1128,8 @@
         $('regForm').onsubmit = async (e) => {
             e.preventDefault();
             const o = $('eventSelect').selectedOptions[0].dataset;
-            let firstError = null; // Track first error
+            let firstError = null;
 
-            // [V3 New] Enhanced Validation
             if (o.type === '旅遊') {
                 const pInput = $('pickup'), rInput = $('room');
                 if (!pInput.value) { setError(pInput, true); if(!firstError) firstError = pInput; }
@@ -1171,7 +1185,6 @@
                 });
             });
 
-            // [V3 New] Custom Confirm
             const confirmed = await showConfirm("確認送出", `即將送出 ${queue.length} 位報名資料，確定嗎？`);
             if(!confirmed) return;
 
@@ -1195,7 +1208,6 @@
         };
 
         $('cancelBtn').onclick = async () => {
-            // [V3 New] Custom Confirm (Danger style)
             const confirmed = await showConfirm("取消報名", "警告：這將會刪除您與所有來賓的紀錄，確定嗎？", true);
             if (!confirmed) return;
 

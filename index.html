@@ -15,6 +15,7 @@
             --primary-dark: #05a346;
             --primary-soft: rgba(6, 199, 85, 0.12);
             --accent-red: #ff4757;
+            --accent-blue: #2e86de;
             --text-main: #2f3542;
             --text-sub: #747d8c;
             --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
@@ -81,6 +82,69 @@
             align-items: center;
         }
 
+        /* --- Toast Notification Styles --- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: 90%;
+            max-width: 400px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: #fff;
+            color: var(--text-main);
+            padding: 14px 20px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideInDown 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            pointer-events: auto;
+            border-left: 5px solid #ccc;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .toast.success { border-color: var(--primary); }
+        .toast.error { border-color: var(--accent-red); }
+        .toast.info { border-color: var(--accent-blue); }
+
+        .toast-icon { font-size: 1.2rem; }
+
+        @keyframes slideInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+
+        /* --- Skeleton Loading Styles --- */
+        .skeleton {
+            background: #f0f2f5;
+            background: linear-gradient(90deg, #f0f2f5 25%, #e6e8eb 50%, #f0f2f5 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 16px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .sk-card {
+            height: 120px;
+            border-radius: 16px;
+            width: 100%;
+        }
+
         /* Event Grid */
         .event-grid {
             display: grid;
@@ -93,7 +157,7 @@
             background: #fff;
             border: 2px solid transparent;
             border-radius: 16px;
-            padding: 20px 10px; /* 增加 padding */
+            padding: 20px 10px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -101,8 +165,8 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: center; /* 讓內容置中 */
-            min-height: 100px; /* 稍微加高 */
+            align-items: center;
+            min-height: 100px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
         }
 
@@ -114,7 +178,6 @@
             box-shadow: 0 8px 16px rgba(6, 199, 85, 0.2);
         }
 
-        /* --- 新增：Icon 樣式 --- */
         .event-icon {
             font-size: 2.2rem;
             margin-bottom: 8px;
@@ -165,7 +228,7 @@
             padding: 12px 15px;
             border: 2px solid #edf2f7;
             border-radius: var(--radius-input);
-            font-size: 16px; /* Prevent iOS Zoom */
+            font-size: 16px;
             transition: all 0.2s;
             box-sizing: border-box;
             background: #fdfdfd;
@@ -427,13 +490,13 @@
 </head>
 
 <body>
+    <div id="toast-container"></div>
 
     <div class="container">
         <h2>旅遊 / 餐會 報名系統</h2>
         <label>選擇活動：</label>
         <div id="eventGrid" class="event-grid">
-            <p style="grid-column: span 2; text-align: center; color: var(--primary); padding: 10px;">🚀 載入中...</p>
-        </div>
+            </div>
         <select id="eventSelect" style="display:none;">
             <option value="">載入中...</option>
         </select>
@@ -519,6 +582,41 @@
         let masterOptions = { sponsor: [], sponsorQty: [], people: [], table: [], pickup: [], room: [], itinerary: [] };
         let CURRENT_STATS_DATA = { users: [], eventInfo: {}, type: "" };
 
+        // --- NEW: Toast Notification Function ---
+        function showToast(message, type = 'info') {
+            const container = $('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'ℹ️';
+            if(type === 'success') icon = '✅';
+            if(type === 'error') icon = '🚫';
+
+            toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(message)}</span>`;
+            
+            container.appendChild(toast);
+
+            // Auto remove
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.4s forwards';
+                toast.addEventListener('animationend', () => {
+                    toast.remove();
+                });
+            }, 3000);
+        }
+
+        // --- NEW: Render Skeleton Loader ---
+        function renderSkeleton() {
+            const grid = $('eventGrid');
+            grid.innerHTML = '';
+            // Render 4 dummy cards
+            for(let i=0; i<4; i++) {
+                const sk = document.createElement('div');
+                sk.className = 'skeleton sk-card';
+                grid.appendChild(sk);
+            }
+        }
+
         // XSS Protection Helper
         function escapeHtml(text) {
             if (!text) return text;
@@ -529,7 +627,7 @@
 
         function copyToClipboard() {
             if (!CURRENT_STATS_DATA.users || CURRENT_STATS_DATA.users.length === 0) {
-                alert("目前尚無報名資料可複製");
+                showToast("目前尚無報名資料可複製", "error");
                 return;
             }
             const info = CURRENT_STATS_DATA.eventInfo;
@@ -555,9 +653,9 @@
             el.select();
             try {
                 document.execCommand('copy');
-                alert("✅ 報名名單已複製！");
+                showToast("報名名單已複製！", "success");
             } catch (err) {
-                alert("複製失敗，請手動選取文字");
+                showToast("複製失敗，請手動選取文字", "error");
             }
             document.body.removeChild(el);
         }
@@ -567,7 +665,7 @@
             if (!sel) return;
             const o = sel.dataset;
             if (o.officialsite && o.officialsite !== "undefined" && o.officialsite.trim() !== "") window.open(o.officialsite, '_blank');
-            else alert("此地點暫無官網資料");
+            else showToast("此地點暫無官網資料", "info");
         }
 
         function openGoogleMap() {
@@ -576,7 +674,7 @@
             const o = sel.dataset;
             // Standard Universal Link
             const query = encodeURIComponent(`${o.store} ${o.address}`);
-            window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+            window.open(`https://www.google.com/maps/search/?api=1&query=$?q=${query}`, '_blank');
         }
 
         function formatOnlyDate(val) {
@@ -601,14 +699,16 @@
 
         function toggleItinerary() {
             const c = $('itineraryContent');
-            c.style.display = c.style.display === 'block' ? 'none' : 'block';
-            $('arrow').innerText = c.style.display === 'block' ? '－' : '＋';
+            const isBlock = c.style.display === 'block';
+            c.style.display = isBlock ? 'none' : 'block';
+            $('arrow').innerText = isBlock ? '＋' : '－';
         }
 
         function toggleDay(el) {
             const c = el.nextElementSibling;
-            c.style.display = c.style.display === 'block' ? 'none' : 'block';
-            el.querySelector('.day-arrow').innerText = c.style.display === 'block' ? '－' : '＋';
+            const isBlock = c.style.display === 'block';
+            c.style.display = isBlock ? 'none' : 'block';
+            el.querySelector('.day-arrow').innerText = isBlock ? '＋' : '－';
         }
 
         async function callApi(action, extra = '') {
@@ -622,11 +722,13 @@
 
         async function init() {
             try {
+                renderSkeleton(); // Show Skeleton immediately
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) liff.login();
                 const p = await liff.getProfile();
                 $('userName').value = $('userNameShow').value = p.displayName;
                 $('userId').value = p.userId;
+                
                 const res = await callApi('getInitData');
                 masterOptions = res.options;
                 masterOptions.itinerary = res.itinerary;
@@ -642,9 +744,10 @@
                     });
                     sel.add(opt);
                 });
-                renderEventCards();
+                renderEventCards(); // Replace Skeleton with real cards
             } catch (err) {
                 console.error(err);
+                showToast("系統初始化失敗，請重新整理", "error");
             }
         }
 
@@ -659,39 +762,30 @@
                 card.className = 'event-card';
                 if (d.joined === 'true') card.innerHTML += '<span class="badge">已報名</span>';
                 
-                // --- 設定 ICON 邏輯 ---
-                let icon = '📅'; // 預設
+                let icon = '📅';
                 if (d.type === '旅遊') icon = '🚌';
                 else if (['尾牙', '餐會', '聚會'].includes(d.type)) icon = '🍻';
                 
-                // 加入 Icon
                 card.innerHTML += `<div class="event-icon">${icon}</div>`;
                 card.innerHTML += `<div class="type-tag">${d.type}</div><div class="title">${d.title}</div>`;
                 
-                // --- 點擊切換邏輯 (Click Toggle Logic) ---
                 card.onclick = () => {
                     if (card.classList.contains('selected')) {
-                        // 如果已經選中 -> 收縮 (Collapse)
                         card.classList.remove('selected');
-                        sel.value = ""; // 重置 select
-                        
-                        // 隱藏所有資訊區塊
+                        sel.value = ""; 
                         $('regForm').style.display = 'none';
                         $('eventInfo').style.display = 'none';
                         $('stats').style.display = 'none';
                         $('sponsorContainer').innerHTML = '';
                         $('guestContainer').innerHTML = '';
                         $('itineraryContent').innerHTML = '';
-                        
                     } else {
-                        // 如果未選中 -> 展開 (Expand)
                         document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
                         card.classList.add('selected');
                         sel.value = opt.value;
                         sel.dispatchEvent(new Event('change'));
                     }
                 };
-                
                 grid.appendChild(card);
             });
         }
@@ -778,7 +872,7 @@
             const guestInputs = document.querySelectorAll('.g-name');
             for (let input of guestInputs) {
                 if (input.value.trim() === "") {
-                    alert("請先填寫完目前來賓的姓名，再新增下一位！");
+                    showToast("請先填寫完目前來賓的姓名，再新增下一位！", "error");
                     input.focus();
                     return;
                 }
@@ -951,8 +1045,8 @@
             e.preventDefault();
             const o = $('eventSelect').selectedOptions[0].dataset;
             if (o.type === '旅遊') {
-                if (!$('pickup').value) return alert("請選擇本人的上車地點");
-                if (!$('room').value) return alert("請選擇本人的房型");
+                if (!$('pickup').value) { showToast("請選擇本人的上車地點", "error"); return; }
+                if (!$('room').value) { showToast("請選擇本人的房型", "error"); return; }
             }
             const sponsorList = [];
             document.querySelectorAll('.sponsor-item').forEach(r => {
@@ -997,10 +1091,10 @@
                     const r = await callApi('modify', `&payload=${encodeURIComponent(JSON.stringify(queue[i]))}`);
                     if (r.status === "success") successCount++;
                 }
-                alert(`成功處理 ${successCount} 位報名紀錄！`);
-                location.reload();
+                showToast(`成功處理 ${successCount} 位報名紀錄！`, "success");
+                setTimeout(() => location.reload(), 1500); // Wait for toast
             } catch (err) {
-                alert("部分或全部報名失敗，請稍後再試");
+                showToast("部分或全部報名失敗，請稍後再試", "error");
                 $('subBtn').disabled = false;
                 $('subBtn').innerText = "送出報名";
             }
@@ -1013,10 +1107,10 @@
             $('cancelBtn').innerText = "處理中...";
             try {
                 const r = await callApi('cancel', `&payload=${encodeURIComponent(JSON.stringify({ eventId: o.eventid, userId: $('userId').value }))}`);
-                alert(r.message);
-                location.reload();
+                showToast(r.message, "success");
+                setTimeout(() => location.reload(), 1500);
             } catch (err) {
-                alert("取消失敗");
+                showToast("取消失敗", "error");
                 $('cancelBtn').disabled = false;
             }
         };
